@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPAMNHS System Walkthrough</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #0b2b5c;
+  --navy-mid: #1a4a8a;
+  --gold: #f5c842;
+  --gold-soft: rgba(245,200,66,0.18);
+  --cream: #faf8f3;
+  --ink: #0e1b2e;
+  --muted: #6b7fa0;
+  --surface: #ffffff;
+  --border: rgba(11,43,92,0.12);
+  --admin-accent: #1a4a8a;
+  --resident-accent: #0e7c59;
+  --sys-accent: #7b3fa0;
+  --radius: 14px;
+  --shadow: 0 4px 32px rgba(11,43,92,0.10);
+  --shadow-lg: 0 12px 48px rgba(11,43,92,0.18);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'IBM Plex Mono', monospace;
+  background: var(--cream);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--navy);
+  padding: 2.5rem 2rem 2rem;
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,200,66,0.15), transparent 70%);
+  pointer-events: none;
+}
+.header-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  position: relative;
+}
+.header-badge {
+  display: inline-block;
+  background: var(--gold-soft);
+  border: 1px solid rgba(245,200,66,0.4);
+  color: var(--gold);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 40px;
+  margin-bottom: 1rem;
+}
+.header h1 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  color: #fff;
+  line-height: 1.15;
+  margin-bottom: 0.5rem;
+}
+.header h1 em {
+  font-style: normal;
+  color: var(--gold);
+}
+.header-sub {
+  color: rgba(255,255,255,0.55);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  margin-top: 0.5rem;
+}
+
+/* ── PROGRESS BAR ── */
+.progress-bar-wrap {
+  background: var(--navy);
+  padding: 0 2rem 1.2rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.progress-steps {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  gap: 0;
+  align-items: center;
+}
+.step-dot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  flex: 1;
+  position: relative;
+  transition: opacity 0.2s;
+}
+.step-dot:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 13px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: rgba(255,255,255,0.12);
+  z-index: 0;
+  transition: background 0.3s;
+}
+.step-dot.done:not(:last-child)::after { background: var(--gold); }
+.dot-circle {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.65rem;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  color: rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.05);
+  transition: all 0.3s;
+  z-index: 1;
+  position: relative;
+}
+.step-dot.active .dot-circle {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: var(--navy);
+}
+.step-dot.done .dot-circle {
+  border-color: var(--gold);
+  background: rgba(245,200,66,0.2);
+  color: var(--gold);
+}
+.dot-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  color: rgba(255,255,255,0.3);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: none;
+}
+@media(min-width: 600px) { .dot-label { display: block; } }
+.step-dot.active .dot-label, .step-dot.done .dot-label { color: rgba(255,255,255,0.7); }
+
+/* ── MAIN CONTENT ── */
+.main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* ── SLIDE ── */
+.slide {
+  display: none;
+  animation: slideIn 0.35s ease forwards;
+}
+.slide.active { display: block; }
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── SLIDE HEADER ── */
+.slide-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-bottom: 0.75rem;
+}
+.tag-admin    { background: rgba(26,74,138,0.12); color: var(--admin-accent); }
+.tag-resident { background: rgba(14,124,89,0.12); color: var(--resident-accent); }
+.tag-system   { background: rgba(123,63,160,0.12); color: var(--sys-accent); }
+.tag-auth     { background: rgba(200,60,60,0.10); color: #b83535; }
+
+.slide-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.4rem, 3.5vw, 2rem);
+  color: var(--navy);
+  line-height: 1.2;
+  margin-bottom: 0.4rem;
+}
+.slide-subtitle {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 0.95rem;
+  color: var(--muted);
+  margin-bottom: 1.8rem;
+}
+
+/* ── SCREEN MOCKUP ── */
+.mockup {
+  background: #1a1e2e;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  margin-bottom: 1.8rem;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.mockup-bar {
+  background: #0f1219;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mock-dot { width:10px; height:10px; border-radius:50%; }
+.md-red { background: #ff5f57; }
+.md-yellow { background: #febc2e; }
+.md-green { background: #28c840; }
+.mockup-url {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.45);
+  margin-left: 10px;
+}
+.mockup-screen {
+  padding: 1.2rem;
+  min-height: 220px;
+}
+
+/* ── FUNCTION CARDS ── */
+.fn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.8rem;
+}
+.fn-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.2rem;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: default;
+}
+.fn-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.fn-icon {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+.icon-admin    { background: rgba(26,74,138,0.1); }
+.icon-resident { background: rgba(14,124,89,0.1); }
+.icon-sys      { background: rgba(123,63,160,0.1); }
+.icon-auth     { background: rgba(200,60,60,0.08); }
+.fn-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--navy);
+  margin-bottom: 0.3rem;
+}
+.fn-desc {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.fn-file {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  color: rgba(11,43,92,0.35);
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ── FLOW DIAGRAM ── */
+.flow-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.8rem;
+  overflow-x: auto;
+}
+.flow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.flow-node {
+  background: var(--navy);
+  color: white;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  padding: 7px 14px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.flow-node.green  { background: var(--resident-accent); }
+.flow-node.purple { background: var(--sys-accent); }
+.flow-node.gold   { background: #c89a10; color: white; }
+.flow-node.red    { background: #b83535; }
+.flow-arrow {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+/* ── CALLOUT ── */
+.callout {
+  border-left: 4px solid var(--gold);
+  background: rgba(245,200,66,0.06);
+  border-radius: 0 10px 10px 0;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.8rem;
+}
+.callout p {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: #3a4a5e;
+}
+.callout strong {
+  font-family: 'Syne', sans-serif;
+  color: var(--navy);
+  font-size: 0.8rem;
+}
+
+/* ── CODE BLOCK ── */
+.code-block {
+  background: #0f1219;
+  color: #a8d8a8;
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.76rem;
+  line-height: 1.7;
+  margin-bottom: 1.4rem;
+  overflow-x: auto;
+}
+.code-comment { color: #5a7a8a; }
+.code-fn { color: #82aaff; }
+.code-str { color: #f5c842; }
+.code-kw { color: #c792ea; }
+
+/* ── TABLE ── */
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.8rem;
+  font-size: 0.8rem;
+}
+.info-table th {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--border);
+  text-align: left;
+}
+.info-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.info-table tr:last-child td { border-bottom: none; }
+.info-table tr:hover td { background: rgba(11,43,92,0.025); }
+.badge-pill {
+  display: inline-block;
+  border-radius: 20px;
+  padding: 2px 9px;
+  font-size: 0.68rem;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.pill-admin    { background: rgba(26,74,138,0.12); color: var(--admin-accent); }
+.pill-resident { background: rgba(14,124,89,0.12); color: var(--resident-accent); }
+.pill-sys      { background: rgba(123,63,160,0.12); color: var(--sys-accent); }
+
+/* ── NAV CONTROLS ── */
+.nav-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.btn-nav {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  padding: 10px 22px;
+  border-radius: 40px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex; align-items: center; gap: 8px;
+}
+.btn-prev {
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--muted);
+}
+.btn-prev:hover { background: var(--border); color: var(--ink); }
+.btn-next {
+  background: var(--navy);
+  color: white;
+}
+.btn-next:hover { background: var(--navy-mid); transform: translateX(3px); }
+.btn-next:disabled { opacity: 0.35; cursor: default; transform: none; }
+
+.counter {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+/* ── OVERVIEW TABLE OF CONTENTS ── */
+.toc-list {
+  list-style: none;
+  margin-bottom: 1.8rem;
+}
+.toc-list li {
+  border-bottom: 1px solid var(--border);
+  padding: 0.7rem 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-radius: 8px;
+  padding: 0.7rem 0.8rem;
+}
+.toc-list li:hover { background: rgba(11,43,92,0.04); }
+.toc-num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--muted);
+  width: 24px;
+  flex-shrink: 0;
+}
+.toc-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 600;
+  font-size: 0.84rem;
+  color: var(--navy);
+  flex: 1;
+}
+.toc-role { font-size: 0.72rem; color: var(--muted); }
+
+/* ── SCREEN UI ELEMENTS ── */
+.ui-navbar {
+  background: linear-gradient(135deg, #0b2b5c, #0f3b7a);
+  border-radius: 8px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.ui-brand {
+  color: white;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+.ui-nav-btns { display: flex; gap: 6px; }
+.ui-btn-sm {
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.65rem;
+  font-family: 'IBM Plex Mono', monospace;
+  border: none;
+  cursor: default;
+}
+.ui-btn-gold { background: rgba(245,200,66,0.85); color: #0b2b5c; font-weight: 700; }
+.ui-btn-ghost { background: rgba(255,255,255,0.15); color: white; }
+
+.ui-card {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.ui-card-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.45); margin-bottom: 4px; }
+.ui-card-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.2rem; color: white; }
+.ui-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.ui-row > * { flex: 1; }
+
+.ui-form-label { font-size: 0.6rem; text-transform: uppercase; color: rgba(255,255,255,0.45); letter-spacing: 0.1em; margin-bottom: 4px; }
+.ui-input {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.6);
+  width: 100%;
+  margin-bottom: 8px;
+}
+.ui-btn-full {
+  width: 100%;
+  background: linear-gradient(135deg, #0b2b5c, #1a4a8a);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 9px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  cursor: default;
+  margin-top: 4px;
+}
+.ui-sidebar-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-bottom: 3px;
+  font-size: 0.68rem;
+  color: rgba(255,255,255,0.55);
+}
+.ui-sidebar-item.active-item { background: rgba(245,200,66,0.15); color: var(--gold); }
+.ui-grade-grid {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 6px;
+}
+.ui-grade-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.ui-grade-card .g-num { font-family: 'Syne',sans-serif; font-weight: 800; font-size: 1.1rem; color: white; }
+.ui-grade-card .g-lbl { font-size: 0.58rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.1em; }
+
+/* ── CHIP LIST ── */
+.chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1.2rem; }
+.chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 40px;
+  padding: 4px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--ink);
+}
+
+.divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<div class="header">
+  <div class="header-inner">
+    <div class="header-badge">System Documentation v1.0</div>
+    <h1>EPAMNHS Portal<br><em>Function Walkthrough</em></h1>
+    <p class="header-sub">Eusebia Paz Arroyo Memorial National High School &mdash; Buluang, Baao, Camarines Sur</p>
+  </div>
+</div>
+
+<!-- ── PROGRESS ── -->
+<div class="progress-bar-wrap">
+  <div class="progress-steps" id="progressSteps">
+    <div class="step-dot active" data-step="0" onclick="goTo(0)">
+      <div class="dot-circle">1</div>
+      <div class="dot-label">Overview</div>
+    </div>
+    <div class="step-dot" data-step="1" onclick="goTo(1)">
+      <div class="dot-circle">2</div>
+      <div class="dot-label">Login</div>
+    </div>
+    <div class="step-dot" data-step="2" onclick="goTo(2)">
+      <div class="dot-circle">3</div>
+      <div class="dot-label">Register</div>
+    </div>
+    <div class="step-dot" data-step="3" onclick="goTo(3)">
+      <div class="dot-circle">4</div>
+      <div class="dot-label">Admin Panel</div>
+    </div>
+    <div class="step-dot" data-step="4" onclick="goTo(4)">
+      <div class="dot-circle">5</div>
+      <div class="dot-label">Grade Mgmt</div>
+    </div>
+    <div class="step-dot" data-step="5" onclick="goTo(5)">
+      <div class="dot-circle">6</div>
+      <div class="dot-label">Resident Portal</div>
+    </div>
+    <div class="step-dot" data-step="6" onclick="goTo(6)">
+      <div class="dot-circle">7</div>
+      <div class="dot-label">Profile & Auth</div>
+    </div>
+    <div class="step-dot" data-step="7" onclick="goTo(7)">
+      <div class="dot-circle">8</div>
+      <div class="dot-label">Summary</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN ── -->
+<div class="main">
+
+  <!-- SLIDE 0: OVERVIEW -->
+  <div class="slide active" id="slide-0">
+    <div class="slide-tag tag-system">System Overview</div>
+    <h2 class="slide-title">What is the EPAMNHS Portal?</h2>
+    <p class="slide-subtitle">A PHP-based school management system with three distinct user roles</p>
+
+    <div class="callout">
+      <p><strong>System Name:</strong> Eusebia Paz Arroyo Memorial National High School Portal (EPAMNHS)<br>
+      Built with PHP (OOP), MySQL, Bootstrap 5, and Chart.js. Manages student enrollment data across Grades 7–12, with separate interfaces for Administrators, Staff, and Students/Residents.</p>
+    </div>
+
+    <div class="flow-wrap">
+      <div class="flow">
+        <div class="flow-node">Browser</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node gold">index.php (Landing)</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node red">login.php</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">Session Auth</div>
+      </div>
+      <div style="height:10px"></div>
+      <div class="flow">
+        <div class="flow-node red" style="opacity:0.3">Session</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">Admin?</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">admn_dashboard.php</div>
+      </div>
+      <div style="height:10px"></div>
+      <div class="flow">
+        <div class="flow-node red" style="opacity:0.3">Session</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node green">Student?</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node green">resident_homepage.php</div>
+      </div>
+    </div>
+
+    <p style="font-family:'Syne',sans-serif; font-weight:700; font-size:0.82rem; color:var(--navy); margin-bottom:0.8rem; text-transform:uppercase; letter-spacing:0.06em;">All Modules at a Glance</p>
+    <ul class="toc-list">
+      <li onclick="goTo(1)">
+        <span class="toc-num">01</span>
+        <span class="toc-name">Login &amp; Authentication</span>
+        <span class="toc-role"><span class="badge-pill pill-sys">All Users</span></span>
+      </li>
+      <li onclick="goTo(2)">
+        <span class="toc-num">02</span>
+        <span class="toc-name">Student Registration</span>
+        <span class="toc-role"><span class="badge-pill pill-resident">Students</span></span>
+      </li>
+      <li onclick="goTo(3)">
+        <span class="toc-num">03</span>
+        <span class="toc-name">Admin Dashboard &amp; CRUD</span>
+        <span class="toc-role"><span class="badge-pill pill-admin">Admin</span></span>
+      </li>
+      <li onclick="goTo(4)">
+        <span class="toc-num">04</span>
+        <span class="toc-name">Grade Management (G7–G12)</span>
+        <span class="toc-role"><span class="badge-pill pill-admin">Admin</span></span>
+      </li>
+      <li onclick="goTo(5)">
+        <span class="toc-num">05</span>
+        <span class="toc-name">Resident / Student Portal</span>
+        <span class="toc-role"><span class="badge-pill pill-resident">Students</span></span>
+      </li>
+      <li onclick="goTo(6)">
+        <span class="toc-num">06</span>
+        <span class="toc-name">Profile Management &amp; Password Change</span>
+        <span class="toc-role"><span class="badge-pill pill-sys">All Users</span></span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- SLIDE 1: LOGIN -->
+  <div class="slide" id="slide-1">
+    <div class="slide-tag tag-auth">Authentication</div>
+    <h2 class="slide-title">Login Page</h2>
+    <p class="slide-subtitle">The gateway — validates credentials and routes users by role</p>
+
+    <!-- Mockup -->
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="mock-dot md-red"></div>
+        <div class="mock-dot md-yellow"></div>
+        <div class="mock-dot md-green"></div>
+        <div class="mockup-url">localhost/htdocs/login.php</div>
+      </div>
+      <div class="mockup-screen">
+        <div class="ui-navbar">
+          <div class="ui-brand">🎓 EPAMNHS Portal</div>
+          <div class="ui-nav-btns">
+            <div class="ui-btn-sm ui-btn-gold">← Back to Portal</div>
+          </div>
+        </div>
+        <div style="max-width:320px;margin:0 auto;">
+          <div style="text-align:center;margin-bottom:14px;">
+            <div style="width:52px;height:52px;background:rgba(255,255,255,0.1);border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🏫</div>
+            <div style="font-family:'Syne',sans-serif;font-weight:700;color:white;font-size:0.9rem;">Eusebia Paz Arroyo Memorial NHS</div>
+            <div style="font-size:0.62rem;color:rgba(255,215,0,0.7);margin-top:3px;">Buluang, Baao, Camarines Sur</div>
+          </div>
+          <div class="ui-form-label">Email or Phone</div>
+          <div class="ui-input">your.email@example.com</div>
+          <div class="ui-form-label">Password</div>
+          <div class="ui-input">••••••••</div>
+          <div style="font-size:0.62rem;color:rgba(255,255,255,0.4);margin-bottom:10px;">☐ Show password</div>
+          <div class="ui-btn-full">🔑 Log In</div>
+          <div style="border-top:1px solid rgba(255,255,255,0.1);margin:12px 0;"></div>
+          <div style="text-align:center;font-size:0.65rem;color:rgba(255,255,255,0.4);">Don't have an account?</div>
+          <div class="ui-btn-full" style="background:rgba(255,255,255,0.08);margin-top:6px;">👤 Create Account</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fn-grid">
+      <div class="fn-card">
+        <div class="fn-icon icon-auth">🔐</div>
+        <div class="fn-name">login()</div>
+        <div class="fn-desc">Accepts email/phone + password. Checks against three user tables: admin, staff, and resident. On success, stores user data in <code>$_SESSION</code> and redirects by role.</div>
+        <div class="fn-file">classes/main.class.php : login()</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-auth">🛡️</div>
+        <div class="fn-name">validate_admin()</div>
+        <div class="fn-desc">Called at the top of every admin page. If the session does not contain admin credentials, it redirects the visitor to <code>login.php</code> immediately.</div>
+        <div class="fn-file">classes/main.class.php : validate_admin()</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-auth">🚪</div>
+        <div class="fn-name">logout()</div>
+        <div class="fn-desc">Destroys the active session and redirects to <code>login.php</code>. Triggered from the sidebar dropdown in both admin and resident layouts.</div>
+        <div class="fn-file">logout.php → main.class.php : logout()</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-sys">🗂️</div>
+        <div class="fn-name">get_userdata()</div>
+        <div class="fn-desc">Reads the current session and returns an associative array with the logged-in user's ID, name, email, and role — used on every protected page.</div>
+        <div class="fn-file">classes/main.class.php : get_userdata()</div>
+      </div>
+    </div>
+
+    <div class="code-block"><span class="code-comment">// Simplified login flow (main.class.php)</span>
+<span class="code-kw">public function</span> <span class="code-fn">login</span>() {
+  <span class="code-kw">if</span> (isset(<span class="code-str">$_POST['login']</span>)) {
+    <span class="code-comment">// 1. Check tbl_admin  → set session role = 'admin'</span>
+    <span class="code-comment">// 2. Check tbl_staff  → set session role = 'staff'</span>
+    <span class="code-comment">// 3. Check tbl_resident → set session role = 'resident'</span>
+    <span class="code-comment">// 4. Redirect to appropriate dashboard</span>
+  }
+}</div>
+
+    <div class="callout">
+      <p><strong>Role Routing:</strong> After successful login, the system reads the matched table and routes: Admins → <code>admn_dashboard.php</code>, Staff → admin area, Students → <code>resident_homepage.php</code>.</p>
+    </div>
+  </div>
+
+  <!-- SLIDE 2: REGISTRATION -->
+  <div class="slide" id="slide-2">
+    <div class="slide-tag tag-resident">Student Registration</div>
+    <h2 class="slide-title">Resident Registration</h2>
+    <p class="slide-subtitle">New students create their own portal account before logging in</p>
+
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="mock-dot md-red"></div>
+        <div class="mock-dot md-yellow"></div>
+        <div class="mock-dot md-green"></div>
+        <div class="mockup-url">localhost/htdocs/resident_registration.php</div>
+      </div>
+      <div class="mockup-screen">
+        <div class="ui-navbar">
+          <div class="ui-brand">🎓 EPAMNHS &mdash; Student Registration</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div>
+            <div class="ui-form-label">First Name</div>
+            <div class="ui-input">Juan</div>
+          </div>
+          <div>
+            <div class="ui-form-label">Last Name</div>
+            <div class="ui-input">dela Cruz</div>
+          </div>
+          <div>
+            <div class="ui-form-label">Email Address</div>
+            <div class="ui-input">juan@email.com</div>
+          </div>
+          <div>
+            <div class="ui-form-label">Phone Number</div>
+            <div class="ui-input">09XX-XXX-XXXX</div>
+          </div>
+          <div>
+            <div class="ui-form-label">Grade Level</div>
+            <div class="ui-input">Grade 11</div>
+          </div>
+          <div>
+            <div class="ui-form-label">Strand / Course</div>
+            <div class="ui-input">STEM</div>
+          </div>
+        </div>
+        <div class="ui-btn-full" style="margin-top:10px;">✅ Submit Registration</div>
+      </div>
+    </div>
+
+    <div class="fn-grid">
+      <div class="fn-card">
+        <div class="fn-icon icon-resident">📝</div>
+        <div class="fn-name">create_resident()</div>
+        <div class="fn-desc">Handles the registration form POST. Hashes the password, validates that the email/phone is not already taken (<code>check_resident()</code>), then inserts a new record into <code>tbl_resident</code>.</div>
+        <div class="fn-file">classes/resident.class.php : create_resident()</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-resident">🔍</div>
+        <div class="fn-name">check_resident()</div>
+        <div class="fn-desc">Queries <code>tbl_resident</code> for an existing email or phone number. Returns a result set — if not empty, registration is blocked with a duplicate-account error.</div>
+        <div class="fn-file">classes/resident.class.php : check_resident()</div>
+      </div>
+    </div>
+
+    <p style="font-family:'Syne',sans-serif;font-weight:700;font-size:0.82rem;color:var(--navy);margin-bottom:0.7rem;text-transform:uppercase;letter-spacing:0.06em;">Registration Fields</p>
+    <div class="chip-list">
+      <span class="chip">First Name</span><span class="chip">Last Name</span><span class="chip">Middle Initial</span>
+      <span class="chip">Email</span><span class="chip">Phone</span><span class="chip">Password</span>
+      <span class="chip">Grade Level</span><span class="chip">Strand / Course</span><span class="chip">Address</span>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: ADMIN DASHBOARD -->
+  <div class="slide" id="slide-3">
+    <div class="slide-tag tag-admin">Admin Module</div>
+    <h2 class="slide-title">Admin Dashboard</h2>
+    <p class="slide-subtitle">Real-time enrollment stats, charts, and strand breakdowns</p>
+
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="mock-dot md-red"></div>
+        <div class="mock-dot md-yellow"></div>
+        <div class="mock-dot md-green"></div>
+        <div class="mockup-url">localhost/htdocs/admn_dashboard.php</div>
+      </div>
+      <div class="mockup-screen">
+        <div style="display:flex;gap:10px;height:100%;">
+          <!-- Sidebar -->
+          <div style="width:120px;flex-shrink:0;">
+            <div style="font-size:0.58rem;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;padding:0 10px;">Navigation</div>
+            <div class="ui-sidebar-item active-item">📊 Dashboard</div>
+            <div class="ui-sidebar-item">7️⃣ Grade 7</div>
+            <div class="ui-sidebar-item">8️⃣ Grade 8</div>
+            <div class="ui-sidebar-item">9️⃣ Grade 9</div>
+            <div class="ui-sidebar-item">🔟 Grade 10</div>
+            <div class="ui-sidebar-item">1️⃣1️⃣ Grade 11</div>
+            <div class="ui-sidebar-item">1️⃣2️⃣ Grade 12</div>
+            <div class="ui-sidebar-item">🗄️ Archive</div>
+          </div>
+          <!-- Content -->
+          <div style="flex:1;">
+            <div class="ui-row">
+              <div class="ui-card">
+                <div class="ui-card-label">JHS Enrollees</div>
+                <div class="ui-card-val">1,240</div>
+              </div>
+              <div class="ui-card">
+                <div class="ui-card-label">SHS Enrollees</div>
+                <div class="ui-card-val">836</div>
+              </div>
+            </div>
+            <div class="ui-card">
+              <div class="ui-card-label">SHS Strand Distribution</div>
+              <div style="display:flex;gap:6px;margin-top:6px;">
+                <div style="background:rgba(245,200,66,0.3);height:6px;flex:3;border-radius:3px;"></div>
+                <div style="background:rgba(130,170,255,0.4);height:6px;flex:2;border-radius:3px;"></div>
+                <div style="background:rgba(100,220,160,0.4);height:6px;flex:1.5;border-radius:3px;"></div>
+                <div style="background:rgba(255,120,120,0.4);height:6px;flex:1;border-radius:3px;"></div>
+              </div>
+              <div style="font-size:0.58rem;color:rgba(255,255,255,0.3);margin-top:4px;">STEM · ABM · GAS · TVL-ICT · TVL-HE</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fn-grid">
+      <div class="fn-card">
+        <div class="fn-icon icon-admin">📈</div>
+        <div class="fn-name">count_by_grade()</div>
+        <div class="fn-desc">Queries a specific grade table (e.g., <code>tbl_seven</code>) and returns total enrollment count. Accepts optional column + value filters for strand-specific counts (e.g., STEM in Grade 11).</div>
+        <div class="fn-file">classes/main.class.php : count_by_grade()</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-admin">👔</div>
+        <div class="fn-name">Staff CRUD (admn_crud.php)</div>
+        <div class="fn-desc">Full Create / Read / Update / Delete for staff accounts. Admin can add new staff with <code>create_staff()</code>, view with <code>view_staff()</code>, edit with <code>update_staff()</code>, and remove with <code>delete_staff()</code>.</div>
+        <div class="fn-file">admn_crud.php → classes/staff.class.php</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-admin">📢</div>
+        <div class="fn-name">Announcements CRUD</div>
+        <div class="fn-desc">Admins create, edit, and delete announcements visible on the resident/student portal. Managed via <code>admn_announcement_crud.php</code>.</div>
+        <div class="fn-file">admn_announcement_crud.php</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-admin">➕</div>
+        <div class="fn-name">create_admin()</div>
+        <div class="fn-desc">Bootstraps the first admin account if none exists. Also used by <code>add_admin.php</code> to let existing admins create additional administrator accounts.</div>
+        <div class="fn-file">classes/main.class.php : create_admin()</div>
+      </div>
+    </div>
+
+    <table class="info-table">
+      <thead><tr><th>Feature</th><th>File</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td>Enrollment dashboard with charts</td><td><code>admn_dashboard.php</code></td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td>Staff management (CRUD)</td><td><code>admn_crud.php</code></td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td>Add new administrator</td><td><code>add_admin.php</code></td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td>Announcement management</td><td><code>admn_announcement_crud.php</code></td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td>Archive management</td><td><code>admn_archive.php</code></td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td>Change admin password</td><td><code>admin_changepass.php</code></td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SLIDE 4: GRADE MANAGEMENT -->
+  <div class="slide" id="slide-4">
+    <div class="slide-tag tag-admin">Grade Management</div>
+    <h2 class="slide-title">Student Records — Grades 7 to 12</h2>
+    <p class="slide-subtitle">Each grade has its own table, CRUD operations, search, and archive</p>
+
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="mock-dot md-red"></div>
+        <div class="mock-dot md-yellow"></div>
+        <div class="mock-dot md-green"></div>
+        <div class="mockup-url">localhost/htdocs/admn_seven.php</div>
+      </div>
+      <div class="mockup-screen">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;color:white;font-size:0.85rem;margin-bottom:10px;">Grade 7 — Student Records</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <div style="background:rgba(255,255,255,0.08);border-radius:6px;padding:6px 12px;font-size:0.65rem;color:rgba(255,255,255,0.5);flex:1;">🔍 Search student...</div>
+          <div class="ui-btn-sm ui-btn-gold">+ Add Student</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.05);border-radius:8px;overflow:hidden;">
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:7px 10px;font-size:0.6rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid rgba(255,255,255,0.07);">
+            <span>Student Name</span><span>LRN</span><span>Section</span><span>Actions</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:7px 10px;font-size:0.65rem;color:rgba(255,255,255,0.65);border-bottom:1px solid rgba(255,255,255,0.05);">
+            <span>Dela Cruz, Juan M.</span><span>123456789</span><span>Sampaguita</span><span>✏️ 🗑️</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:7px 10px;font-size:0.65rem;color:rgba(255,255,255,0.65);border-bottom:1px solid rgba(255,255,255,0.05);">
+            <span>Santos, Maria L.</span><span>987654321</span><span>Rosal</span><span>✏️ 🗑️</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:7px 10px;font-size:0.65rem;color:rgba(255,255,255,0.4);">
+            <span colspan="4">... more records</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fn-grid">
+      <div class="fn-card">
+        <div class="fn-icon icon-admin">➕</div>
+        <div class="fn-name">create_[grade]()</div>
+        <div class="fn-desc">Six separate create functions — one per grade level (<code>create_seven()</code> through <code>create_twelve()</code>). Each inserts a new student record into the corresponding grade table with all required enrollment fields.</div>
+        <div class="fn-file">classes/main.class.php</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-admin">✏️</div>
+        <div class="fn-name">update_[grade]()</div>
+        <div class="fn-desc">Updates an existing student's record by <code>id_resident</code>. Covers all editable fields including name, LRN, section, and strand. One function per grade level.</div>
+        <div class="fn-file">classes/main.class.php</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-admin">🗑️</div>
+        <div class="fn-name">delete_[grade]()</div>
+        <div class="fn-desc">Soft-deletes a student by moving the record to the archive status (or removes it). Archive versions (<code>view_archived_[grade]()</code>) allow recovery via <code>restore_[grade]()</code>.</div>
+        <div class="fn-file">classes/main.class.php</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-admin">🔎</div>
+        <div class="fn-name">Search Functions</div>
+        <div class="fn-desc">Dedicated search pages per grade (e.g., <code>admn_eight_search.php</code>) call live-search queries against the grade table — filtering by name, LRN, or section.</div>
+        <div class="fn-file">admn_[grade]_search.php</div>
+      </div>
+    </div>
+
+    <table class="info-table">
+      <thead><tr><th>Grade</th><th>Admin Page</th><th>Search Page</th><th>DB Table</th></tr></thead>
+      <tbody>
+        <tr><td>Grade 7</td><td><code>admn_seven.php</code></td><td><code>admn_table_seven_search.php</code></td><td><code>tbl_seven</code></td></tr>
+        <tr><td>Grade 8</td><td><code>admn_eight.php</code></td><td><code>admn_eight_search.php</code></td><td><code>tbl_eight</code></td></tr>
+        <tr><td>Grade 9</td><td><code>admn_nine.php</code></td><td><code>admn_nine_search.php</code></td><td><code>tbl_nine</code></td></tr>
+        <tr><td>Grade 10</td><td><code>admn_ten.php</code></td><td><code>admn_ten_search.php</code></td><td><code>tbl_ten</code></td></tr>
+        <tr><td>Grade 11 (SHS)</td><td><code>admn_eleven.php</code></td><td><code>admn_eleven_search.php</code></td><td><code>tbl_eleven</code></td></tr>
+        <tr><td>Grade 12 (SHS)</td><td><code>admn_twelve.php</code></td><td><code>admn_twelve_search.php</code></td><td><code>tbl_twelve</code></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <p><strong>SHS Strand Pages:</strong> For Grade 11 and 12, there are also strand-specific sub-pages — e.g., <code>stemeleven.php</code>, <code>abmtwelve.php</code>, <code>gastwelve.php</code>, <code>icteleven.php</code>, <code>hetwelve.php</code> — showing filtered views per academic track.</p>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: RESIDENT PORTAL -->
+  <div class="slide" id="slide-5">
+    <div class="slide-tag tag-resident">Student Portal</div>
+    <h2 class="slide-title">Resident / Student Homepage</h2>
+    <p class="slide-subtitle">The logged-in student's personal portal: view grade records, announcements, and profile</p>
+
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="mock-dot md-red"></div>
+        <div class="mock-dot md-yellow"></div>
+        <div class="mock-dot md-green"></div>
+        <div class="mockup-url">localhost/htdocs/resident_homepage.php</div>
+      </div>
+      <div class="mockup-screen">
+        <div class="ui-navbar">
+          <div class="ui-brand">🎓 EPAMNHS Student Portal</div>
+          <div class="ui-btn-sm ui-btn-ghost">👤 Juan dela Cruz ▾</div>
+        </div>
+        <div style="font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:12px;">Saturday, May 16, 2026 &nbsp;|&nbsp; Welcome back!</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;color:rgba(255,255,255,0.7);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Your Grade Modules</div>
+        <div class="ui-grade-grid">
+          <div class="ui-grade-card"><div class="g-num">7</div><div class="g-lbl">Grade</div></div>
+          <div class="ui-grade-card"><div class="g-num">8</div><div class="g-lbl">Grade</div></div>
+          <div class="ui-grade-card"><div class="g-num">9</div><div class="g-lbl">Grade</div></div>
+          <div class="ui-grade-card"><div class="g-num">10</div><div class="g-lbl">Grade</div></div>
+          <div class="ui-grade-card" style="border-color:rgba(245,200,66,0.3);"><div class="g-num" style="color:var(--gold);">11</div><div class="g-lbl" style="color:rgba(245,200,66,0.5);">SHS</div></div>
+          <div class="ui-grade-card" style="border-color:rgba(245,200,66,0.3);"><div class="g-num" style="color:var(--gold);">12</div><div class="g-lbl" style="color:rgba(245,200,66,0.5);">SHS</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fn-grid">
+      <div class="fn-card">
+        <div class="fn-icon icon-resident">🏠</div>
+        <div class="fn-name">resident_homepage.php</div>
+        <div class="fn-desc">Main landing page after student login. Displays the current date/time, a greeting, and clickable cards for each grade level (G7–G12). Each card links to the student's own enrollment detail page.</div>
+        <div class="fn-file">resident_homepage.php</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-resident">📄</div>
+        <div class="fn-name">grade[N].php Views</div>
+        <div class="fn-desc">Six read-only grade detail pages (<code>grade7.php</code> to <code>grade12.php</code>). Fetches the student's own record from the corresponding grade table by their <code>id_resident</code> and displays their enrollment data.</div>
+        <div class="fn-file">grade7.php … grade12.php</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-resident">🔍</div>
+        <div class="fn-name">resident_crud_search.php</div>
+        <div class="fn-desc">Provides the resident-facing search functionality, allowing students to look up records in the system using their own identity credentials.</div>
+        <div class="fn-file">resident_crud_search.php</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-resident">👥</div>
+        <div class="fn-name">Household &amp; Voter Views</div>
+        <div class="fn-desc"><code>view_resident_household()</code> and <code>view_resident_voters()</code> show grouped household members and voter-age residents — useful demographic views for the school's community data.</div>
+        <div class="fn-file">classes/resident.class.php</div>
+      </div>
+    </div>
+
+    <table class="info-table">
+      <thead><tr><th>Function</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>view_resident()</code></td><td>Returns all resident records; used in admin context for browsing the full student list.</td></tr>
+        <tr><td><code>view_resident_minor()</code></td><td>Returns students under 18 years old.</td></tr>
+        <tr><td><code>view_resident_adult()</code></td><td>Returns students aged 18–59.</td></tr>
+        <tr><td><code>view_resident_senior()</code></td><td>Returns records flagged as senior citizens (60+).</td></tr>
+        <tr><td><code>count_resident()</code></td><td>Returns total registered resident count for dashboard stats.</td></tr>
+        <tr><td><code>view_eleven_stem()</code> etc.</td><td>Strand-specific queries for Grade 11/12 (STEM, ABM, GAS, TVL-ICT, TVL-HE).</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SLIDE 6: PROFILE & AUTH -->
+  <div class="slide" id="slide-6">
+    <div class="slide-tag tag-system">Profile & Security</div>
+    <h2 class="slide-title">Profile Management &amp; Password Change</h2>
+    <p class="slide-subtitle">Available to both students and administrators — update personal info and credentials</p>
+
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="mock-dot md-red"></div>
+        <div class="mock-dot md-yellow"></div>
+        <div class="mock-dot md-green"></div>
+        <div class="mockup-url">localhost/htdocs/resident_profile.php?id_resident=42</div>
+      </div>
+      <div class="mockup-screen">
+        <div style="display:flex;gap:14px;align-items:flex-start;">
+          <div style="flex-shrink:0;text-align:center;">
+            <div style="width:60px;height:60px;background:linear-gradient(135deg,#1a4a8a,#0b2b5c);border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;border:2px solid rgba(245,200,66,0.4);">👤</div>
+            <div style="font-size:0.62rem;color:rgba(255,255,255,0.5);">Edit Photo</div>
+          </div>
+          <div style="flex:1;">
+            <div style="font-family:'Syne',sans-serif;font-weight:700;color:white;font-size:0.9rem;">Juan M. dela Cruz</div>
+            <div style="font-size:0.65rem;color:rgba(255,215,0,0.7);margin-bottom:10px;">Grade 11 &mdash; STEM Strand</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+              <div>
+                <div class="ui-form-label">Email</div>
+                <div class="ui-input" style="font-size:0.65rem;">juan@email.com</div>
+              </div>
+              <div>
+                <div class="ui-form-label">Phone</div>
+                <div class="ui-input" style="font-size:0.65rem;">09XX-XXX-XXXX</div>
+              </div>
+            </div>
+            <div class="ui-btn-full" style="margin-top:6px;font-size:0.72rem;">💾 Save Changes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fn-grid">
+      <div class="fn-card">
+        <div class="fn-icon icon-resident">👤</div>
+        <div class="fn-name">profile_update()</div>
+        <div class="fn-desc">Handles the profile edit form POST for residents. Updates name, contact info, and other personal fields in <code>tbl_resident</code>. Requires the student's <code>id_resident</code> from the URL.</div>
+        <div class="fn-file">resident_profile.php → resident.class.php : profile_update()</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-resident">🔑</div>
+        <div class="fn-name">resident_changepass()</div>
+        <div class="fn-desc">Verifies the current password, then hashes and saves the new one for the resident account. Triggered from <code>resident_changepass.php</code>.</div>
+        <div class="fn-file">resident_changepass.php → resident.class.php</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-admin">🔒</div>
+        <div class="fn-name">admin_changepass()</div>
+        <div class="fn-desc">Same password-change flow for admin accounts. Validates current credentials before accepting the new password, preventing unauthorized resets.</div>
+        <div class="fn-file">admin_changepass.php → main.class.php : admin_changepass()</div>
+      </div>
+      <div class="fn-card">
+        <div class="fn-icon icon-resident">📋</div>
+        <div class="fn-name">get_single_resident()</div>
+        <div class="fn-desc">Fetches all fields for a specific resident by <code>id_resident</code>. Used to pre-populate the profile edit form with existing data before the user makes changes.</div>
+        <div class="fn-file">classes/resident.class.php : get_single_resident()</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7: SUMMARY -->
+  <div class="slide" id="slide-7">
+    <div class="slide-tag tag-system">Complete Summary</div>
+    <h2 class="slide-title">Full Function Reference</h2>
+    <p class="slide-subtitle">Every key function from login to dashboard to portal</p>
+
+    <table class="info-table">
+      <thead><tr><th>Function / Page</th><th>File</th><th>What It Does</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><code>login()</code></td><td>main.class.php</td><td>Authenticates user, starts session, routes by role</td><td><span class="badge-pill pill-sys">All</span></td></tr>
+        <tr><td><code>logout()</code></td><td>logout.php</td><td>Destroys session, redirects to login</td><td><span class="badge-pill pill-sys">All</span></td></tr>
+        <tr><td><code>get_userdata()</code></td><td>main.class.php</td><td>Returns logged-in user's session data</td><td><span class="badge-pill pill-sys">All</span></td></tr>
+        <tr><td><code>validate_admin()</code></td><td>main.class.php</td><td>Guards all admin pages; redirects if not admin</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>create_resident()</code></td><td>resident.class.php</td><td>Registers a new student account</td><td><span class="badge-pill pill-resident">Student</span></td></tr>
+        <tr><td><code>check_resident()</code></td><td>resident.class.php</td><td>Duplicate email/phone check before registration</td><td><span class="badge-pill pill-resident">Student</span></td></tr>
+        <tr><td><code>create_admin()</code></td><td>main.class.php</td><td>Creates admin account (bootstrap or add)</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>count_by_grade()</code></td><td>main.class.php</td><td>Count enrollees per grade/strand for dashboard</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>create_[grade]()</code></td><td>main.class.php</td><td>Add student to Grade 7–12 table</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>update_[grade]()</code></td><td>main.class.php</td><td>Edit student record in grade table</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>delete_[grade]()</code></td><td>main.class.php</td><td>Remove/archive student from grade table</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>restore_[grade]()</code></td><td>main.class.php</td><td>Restore archived student record</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>view_[grade]()</code></td><td>main.class.php</td><td>List all students in a grade table</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>get_single_[grade]()</code></td><td>main.class.php</td><td>Fetch one student record by ID for edit form</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>create_staff()</code></td><td>staff.class.php</td><td>Add new staff account</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>update_staff()</code></td><td>staff.class.php</td><td>Edit staff information</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>delete_staff()</code></td><td>staff.class.php</td><td>Remove staff account</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>count_staff()</code></td><td>staff.class.php</td><td>Total staff count for dashboard</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>profile_update()</code></td><td>resident.class.php</td><td>Update student's own profile fields</td><td><span class="badge-pill pill-resident">Student</span></td></tr>
+        <tr><td><code>resident_changepass()</code></td><td>resident.class.php</td><td>Change student password securely</td><td><span class="badge-pill pill-resident">Student</span></td></tr>
+        <tr><td><code>admin_changepass()</code></td><td>main.class.php</td><td>Change admin password securely</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td><code>view_eleven_stem()</code> etc.</td><td>resident.class.php</td><td>Strand-filtered Grade 11/12 views</td><td><span class="badge-pill pill-sys">All</span></td></tr>
+        <tr><td><code>view_resident_household()</code></td><td>resident.class.php</td><td>Group residents by household</td><td><span class="badge-pill pill-sys">All</span></td></tr>
+        <tr><td>Search pages (admn_*_search)</td><td>Various</td><td>Live search by name/LRN per grade level</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+        <tr><td>Archive (admn_archive.php)</td><td>admn_archive.php</td><td>View and restore archived student records</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <p><strong>Architecture Pattern:</strong> The system follows a simple MVC-like structure. PHP class files in <code>classes/</code> act as the model layer. Each <code>.php</code> page is both controller and view. The shared sidebar is split into <code>dashboard_sidebar_start.php</code> and <code>dashboard_sidebar_end.php</code> and included on every admin page.</p>
+    </div>
+
+    <div class="flow-wrap">
+      <p style="font-family:'Syne',sans-serif;font-weight:700;font-size:0.78rem;color:var(--navy);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.06em;">Database Tables</p>
+      <div class="chip-list">
+        <span class="chip">tbl_admin</span>
+        <span class="chip">tbl_staff</span>
+        <span class="chip">tbl_resident</span>
+        <span class="chip">tbl_seven</span>
+        <span class="chip">tbl_eight</span>
+        <span class="chip">tbl_nine</span>
+        <span class="chip">tbl_ten</span>
+        <span class="chip">tbl_eleven</span>
+        <span class="chip">tbl_twelve</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAV CONTROLS -->
+  <div class="nav-controls">
+    <button class="btn-nav btn-prev" id="btnPrev" onclick="prevSlide()">← Previous</button>
+    <span class="counter" id="counter">1 / 8</span>
+    <button class="btn-nav btn-next" id="btnNext" onclick="nextSlide()">Next →</button>
+  </div>
+
+</div>
+
+<script>
+let current = 0;
+const total = 8;
+
+function goTo(n) {
+  const slides = document.querySelectorAll('.slide');
+  const dots   = document.querySelectorAll('.step-dot');
+  slides[current].classList.remove('active');
+  dots[current].classList.remove('active');
+  dots[current].classList.add('done');
+  current = n;
+  slides[current].classList.add('active');
+  dots.forEach((d, i) => {
+    d.classList.remove('active');
+    if (i < current) d.classList.add('done');
+    else if (i === current) d.classList.add('active');
+    else d.classList.remove('done');
+  });
+  document.getElementById('counter').textContent = (current+1) + ' / ' + total;
+  document.getElementById('btnPrev').disabled = current === 0;
+  document.getElementById('btnNext').disabled = current === total - 1;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function nextSlide() { if (current < total-1) goTo(current+1); }
+function prevSlide() { if (current > 0) goTo(current-1); }
+
+document.getElementById('btnPrev').disabled = true;
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') nextSlide();
+  if (e.key === 'ArrowLeft')  prevSlide();
+});
+</script>
+</body>
+</html>
