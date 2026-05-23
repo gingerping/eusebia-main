@@ -102,6 +102,7 @@ $current_order = isset($_GET['order']) ? $_GET['order'] : 'ASC';
                     Search
                 </button>
                 <a href="admn_eleven.php" class="btn btn-info" style="width: 90px; font-size: 17px; border-radius:30px;">Reload</a>
+                <a href="admn_classlist.php?grade=eleven" class="btn btn-secondary ml-2" style="font-size:15px; border-radius:30px;"><i class="fas fa-print mr-1"></i> Class List</a>
             </form>
             <br>
         </div>

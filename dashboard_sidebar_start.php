@@ -119,9 +119,9 @@
             <!-- Divider -->
             <hr class="sidebar-divider d-none d-md-block">
             <li class="nav-item">
-                <a class="nav-link" href="admn_promote.php">
-                    <i class="fas fa-level-up-alt"></i>
-                    <span>Grade Promotion</span></a>
+                <a class="nav-link" href="admn_classlist.php">
+                    <i class="fas fa-print"></i>
+                    <span>Class List</span></a>
             </li>
 <li class="nav-item">
                 <a class="nav-link" href="admn_archive.php">

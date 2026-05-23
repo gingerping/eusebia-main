@@ -14,7 +14,7 @@
     $eusebia->restore_eleven();
     $eusebia->restore_twelve();
 
-    // Handle permanent delete
+    // Handle permanent delete (single)
     if (isset($_POST['permanent_delete'])) {
         $grade_table = $_POST['grade_table'];
         $record_id   = $_POST['record_id'];
@@ -24,6 +24,38 @@
             $id_col = 'id_' . $grade_table;
             $stmt = $connection->prepare("DELETE FROM tbl_{$grade_table} WHERE {$id_col} = ? AND is_archived = 1");
             $stmt->execute([$record_id]);
+        }
+        header("Location: admn_archive.php");
+        exit();
+    }
+
+    // Handle BULK restore
+    if (isset($_POST['bulk_restore']) && !empty($_POST['selected_records'])) {
+        $allowed_tables = ['seven','eight','nine','ten','eleven','twelve'];
+        $connection = $eusebia->openConn();
+        foreach ($_POST['selected_records'] as $entry) {
+            list($grade_table, $record_id) = explode(':', $entry, 2);
+            if (in_array($grade_table, $allowed_tables) && is_numeric($record_id)) {
+                $id_col = 'id_' . $grade_table;
+                $stmt = $connection->prepare("UPDATE tbl_{$grade_table} SET is_archived = 0, archived_at = NULL WHERE {$id_col} = ? AND is_archived = 1");
+                $stmt->execute([$record_id]);
+            }
+        }
+        header("Location: admn_archive.php");
+        exit();
+    }
+
+    // Handle BULK delete
+    if (isset($_POST['bulk_delete']) && !empty($_POST['selected_records'])) {
+        $allowed_tables = ['seven','eight','nine','ten','eleven','twelve'];
+        $connection = $eusebia->openConn();
+        foreach ($_POST['selected_records'] as $entry) {
+            list($grade_table, $record_id) = explode(':', $entry, 2);
+            if (in_array($grade_table, $allowed_tables) && is_numeric($record_id)) {
+                $id_col = 'id_' . $grade_table;
+                $stmt = $connection->prepare("DELETE FROM tbl_{$grade_table} WHERE {$id_col} = ? AND is_archived = 1");
+                $stmt->execute([$record_id]);
+            }
         }
         header("Location: admn_archive.php");
         exit();
@@ -81,6 +113,49 @@
         color: #aaa;
     }
     .empty-archive i { font-size: 60px; margin-bottom: 16px; color: #ccc; }
+    /* Bulk action toolbar */
+    .bulk-toolbar {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        background: #eaf4ff;
+        border: 1.5px solid #b3d4f5;
+        border-radius: 10px;
+        padding: 10px 16px;
+        margin-bottom: 12px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #0b2b5c;
+        flex-wrap: wrap;
+    }
+    .bulk-toolbar.show { display: flex; }
+    .bulk-toolbar .selected-count { margin-right: auto; }
+    .btn-bulk-restore {
+        padding: 7px 16px;
+        border-radius: 10px;
+        border: 1.5px solid #27ae60;
+        background: rgba(39,174,96,0.1);
+        color: #27ae60;
+        font-weight: 700;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-bulk-restore:hover { background: #27ae60; color: white; }
+    .btn-bulk-delete {
+        padding: 7px 16px;
+        border-radius: 10px;
+        border: 1.5px solid #e74c3c;
+        background: rgba(231,76,60,0.08);
+        color: #e74c3c;
+        font-weight: 700;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-bulk-delete:hover { background: #e74c3c; color: white; }
+    .row-checkbox { cursor: pointer; width: 16px; height: 16px; accent-color: #0b2b5c; }
+    #selectAllChk { cursor: pointer; width: 16px; height: 16px; accent-color: #0b2b5c; }
     .delete-modal-overlay {
     display: none;
     position: fixed;
@@ -365,94 +440,114 @@
                     <p>Records you archive from the grade enrollment pages will appear here.</p>
                 </div>
             <?php else: ?>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="thead-light">
-                            <tr>
-                                <th>#</th>
-                                <th>Grade</th>
-                                <th>LRN</th>
-                                <th>Last Name</th>
-                                <th>First Name</th>
-                                <th>M.I.</th>
-                                <th>School Year</th>
-                                <th>Sex</th>
-                                <th>Age</th>
-                                <th>Archived At</th>
-                                <th class="text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php $ctr = 1; foreach ($display_records as $row): ?>
-                            <tr>
-                                <td><?= $ctr++ ?></td>
-                                <td>
-                                    <span class="badge badge-primary archive-badge">
-                                        <?= htmlspecialchars($row['grade_label']) ?>
-                                    </span>
-                                </td>
-                                <td><?= htmlspecialchars($row['lrn'] ?? '') ?></td>
-                                <td><?= htmlspecialchars($row['lname'] ?? '') ?></td>
-                                <td><?= htmlspecialchars($row['fname'] ?? '') ?></td>
-                                <td><?= htmlspecialchars($row['mi'] ?? '') ?></td>
-                                <td><?= htmlspecialchars($row['sy'] ?? '') ?></td>
-                                <td><?= htmlspecialchars($row['sex'] ?? '') ?></td>
-                                <td><?= htmlspecialchars($row['age'] ?? '') ?></td>
-                                <td>
-                                    <?php if (!empty($row['archived_at'])): ?>
-                                        <small class="text-muted">
-                                            <?= date('M d, Y g:i A', strtotime($row['archived_at'])) ?>
-                                        </small>
-                                    <?php else: ?>
-                                        <small class="text-muted">—</small>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="text-center">
-                                    <?php $gt = $row['grade_table']; $rid = $row['record_id']; ?>
-                                    <!-- Restore -->
-                                    <form method="POST" style="display:inline;">
-                                        <input type="hidden" name="id_<?= $gt ?>" value="<?= $rid ?>">
-                                        <button type="button"
-        class="btn btn-sm d-inline-flex align-items-center gap-1"
-        title="Restore Record"
-        style="border: 1.5px solid #27ae60;
-               background: rgba(39,174,96,0.08);
-               color: #27ae60;
-               border-radius: 8px;
-               padding: 6px 12px;
-               font-weight: 700;
-               font-size: 0.75rem;
-               transition: all 0.2s;"
-        onmouseover="this.style.background='#27ae60'; this.style.color='white'"
-        onmouseout="this.style.background='rgba(39,174,96,0.08)'; this.style.color='#27ae60'"
-        onclick="openRestoreModal(this, '<?= strtoupper(substr($gt,0,1)).substr($gt,1) ?>')">
-    <i class="fas fa-undo" style="font-size:0.72rem;"></i>
-    <span>Restore</span>
-</button>
-                                    </form>
-                                    <!-- Permanent Delete -->
-                                    <form method="POST" style="display:inline;" class="ml-1">
-                                        <input type="hidden" name="grade_table" value="<?= $gt ?>">
-                                        <input type="hidden" name="record_id" value="<?= $rid ?>">
-                                        <button type="button"
-        class="btn btn-sm"
-        title="Permanently Delete"
-        style="width: 32px; height: 32px; padding: 0; border-radius: 8px;
-               border: 1.5px solid #e74c3c; background: rgba(231,76,60,0.08);
-               color: #e74c3c; display: inline-flex; align-items: center;
-               justify-content: center; transition: all 0.2s;"
-        onmouseover="this.style.background='#e74c3c'; this.style.color='white'"
-        onmouseout="this.style.background='rgba(231,76,60,0.08)'; this.style.color='#e74c3c'"
-        onclick="openDeleteModal(this)">
-    <i class="fas fa-trash-alt" style="font-size:0.72rem;"></i>
-</button>
-                                    </form>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
+                <!-- Bulk Action Form wraps the whole table -->
+                <form method="POST" id="bulkForm">
+                    <!-- Bulk Toolbar -->
+                    <div class="bulk-toolbar px-3 pt-3" id="bulkToolbar">
+                        <span class="selected-count"><i class="fas fa-check-square mr-1"></i><span id="selectedCount">0</span> record(s) selected</span>
+                        <button type="button" class="btn-bulk-restore" onclick="openBulkRestoreModal()">
+                            <i class="fas fa-undo mr-1"></i> Restore Selected
+                        </button>
+                        <button type="button" class="btn-bulk-delete" onclick="openBulkDeleteModal()">
+                            <i class="fas fa-trash-alt mr-1"></i> Delete Selected
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th><input type="checkbox" id="selectAllChk" title="Select All"></th>
+                                    <th>#</th>
+                                    <th>Grade</th>
+                                    <th>LRN</th>
+                                    <th>Last Name</th>
+                                    <th>First Name</th>
+                                    <th>M.I.</th>
+                                    <th>School Year</th>
+                                    <th>Sex</th>
+                                    <th>Age</th>
+                                    <th>Archived At</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php $ctr = 1; foreach ($display_records as $row): ?>
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" class="row-checkbox"
+                                               name="selected_records[]"
+                                               value="<?= $row['grade_table'] . ':' . $row['record_id'] ?>">
+                                    </td>
+                                    <td><?= $ctr++ ?></td>
+                                    <td>
+                                        <span class="badge badge-primary archive-badge">
+                                            <?= htmlspecialchars($row['grade_label']) ?>
+                                        </span>
+                                    </td>
+                                    <td><?= htmlspecialchars($row['lrn'] ?? '') ?></td>
+                                    <td><?= htmlspecialchars($row['lname'] ?? '') ?></td>
+                                    <td><?= htmlspecialchars($row['fname'] ?? '') ?></td>
+                                    <td><?= htmlspecialchars($row['mi'] ?? '') ?></td>
+                                    <td><?= htmlspecialchars($row['sy'] ?? '') ?></td>
+                                    <td><?= htmlspecialchars($row['sex'] ?? '') ?></td>
+                                    <td><?= htmlspecialchars($row['age'] ?? '') ?></td>
+                                    <td>
+                                        <?php if (!empty($row['archived_at'])): ?>
+                                            <small class="text-muted">
+                                                <?= date('M d, Y g:i A', strtotime($row['archived_at'])) ?>
+                                            </small>
+                                        <?php else: ?>
+                                            <small class="text-muted">—</small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-center">
+                                        <?php $gt = $row['grade_table']; $rid = $row['record_id']; ?>
+                                        <!-- Single Restore -->
+                                        <form method="POST" style="display:inline;">
+                                            <input type="hidden" name="id_<?= $gt ?>" value="<?= $rid ?>">
+                                            <button type="button"
+                                                class="btn btn-sm d-inline-flex align-items-center gap-1"
+                                                title="Restore Record"
+                                                style="border: 1.5px solid #27ae60;
+                                                       background: rgba(39,174,96,0.08);
+                                                       color: #27ae60;
+                                                       border-radius: 8px;
+                                                       padding: 6px 12px;
+                                                       font-weight: 700;
+                                                       font-size: 0.75rem;
+                                                       transition: all 0.2s;"
+                                                onmouseover="this.style.background='#27ae60'; this.style.color='white'"
+                                                onmouseout="this.style.background='rgba(39,174,96,0.08)'; this.style.color='#27ae60'"
+                                                onclick="openRestoreModal(this, '<?= strtoupper(substr($gt,0,1)).substr($gt,1) ?>')">
+                                                <i class="fas fa-undo" style="font-size:0.72rem;"></i>
+                                                <span>Restore</span>
+                                            </button>
+                                        </form>
+                                        <!-- Single Permanent Delete -->
+                                        <form method="POST" style="display:inline;" class="ml-1">
+                                            <input type="hidden" name="grade_table" value="<?= $gt ?>">
+                                            <input type="hidden" name="record_id" value="<?= $rid ?>">
+                                            <button type="button"
+                                                class="btn btn-sm"
+                                                title="Permanently Delete"
+                                                style="width: 32px; height: 32px; padding: 0; border-radius: 8px;
+                                                       border: 1.5px solid #e74c3c; background: rgba(231,76,60,0.08);
+                                                       color: #e74c3c; display: inline-flex; align-items: center;
+                                                       justify-content: center; transition: all 0.2s;"
+                                                onmouseover="this.style.background='#e74c3c'; this.style.color='white'"
+                                                onmouseout="this.style.background='rgba(231,76,60,0.08)'; this.style.color='#e74c3c'"
+                                                onclick="openDeleteModal(this)">
+                                                <i class="fas fa-trash-alt" style="font-size:0.72rem;"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </form><!-- end bulkForm -->
             <?php endif; ?>
         </div>
         <?php if (!empty($display_records)): ?>
@@ -479,13 +574,34 @@
             <button class="btn-cancel-modal" onclick="closeDeleteModal()">
                 Cancel
             </button>
-            <!-- This submits the actual form -->
             <button class="btn-confirm-delete" id="confirmDeleteBtn">
                 <i class="fas fa-trash-alt"></i> Yes, Delete
             </button>
         </div>
     </div>
 </div>
+
+<!-- BULK Delete Modal -->
+<div class="delete-modal-overlay" id="bulkDeleteModalOverlay">
+    <div class="delete-modal">
+        <div class="delete-modal-icon">
+            <i class="fas fa-trash-alt"></i>
+        </div>
+        <h5>Delete Selected Records?</h5>
+        <p>You are about to permanently delete <strong id="bulkDeleteCount">0</strong> selected record(s). This action is irreversible.</p>
+        <div class="delete-modal-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            This cannot be undone!
+        </div>
+        <div class="delete-modal-actions">
+            <button class="btn-cancel-modal" onclick="closeBulkDeleteModal()">Cancel</button>
+            <button class="btn-confirm-delete" id="confirmBulkDeleteBtn">
+                <i class="fas fa-trash-alt"></i> Yes, Delete All
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="restore-modal-overlay" id="restoreModalOverlay">
     <div class="restore-modal">
         <div class="restore-modal-icon">
@@ -507,80 +623,142 @@
         </div>
     </div>
 </div>
-<script>
-let restoreTargetForm = null;
-let restoreInputName  = null;
 
+<!-- BULK Restore Modal -->
+<div class="restore-modal-overlay" id="bulkRestoreModalOverlay">
+    <div class="restore-modal">
+        <div class="restore-modal-icon">
+            <i class="fas fa-undo"></i>
+        </div>
+        <h5>Restore Selected Records?</h5>
+        <p>You are about to restore <strong id="bulkRestoreCount">0</strong> selected record(s) back to their original grade enrollment lists.</p>
+        <div class="restore-modal-info">
+            <i class="fas fa-check-circle"></i>
+            All selected records will be fully recovered!
+        </div>
+        <div class="restore-modal-actions">
+            <button class="btn-cancel-restore" onclick="closeBulkRestoreModal()">Cancel</button>
+            <button class="btn-confirm-restore" id="confirmBulkRestoreBtn">
+                <i class="fas fa-undo"></i> Yes, Restore All
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── Single restore ──────────────────────────────────────────
+let restoreTargetForm = null;
 function openRestoreModal(btn, gradeLabel) {
     restoreTargetForm = btn.closest('form');
-    restoreInputName  = 'restore_<?= $gt ?>';
     document.getElementById('restoreGradeLabel').textContent = 'Grade ' + gradeLabel;
     document.getElementById('restoreModalOverlay').classList.add('show');
 }
-
 function closeRestoreModal() {
     document.getElementById('restoreModalOverlay').classList.remove('show');
     restoreTargetForm = null;
-    restoreInputName  = null;
 }
-
 document.getElementById('confirmRestoreBtn').addEventListener('click', function () {
-    if (restoreTargetForm && restoreInputName) {
-        const input = document.createElement('input');
-        input.type  = 'hidden';
-        input.name  = restoreInputName;
-        input.value = '1';
-        restoreTargetForm.appendChild(input);
+    if (restoreTargetForm) {
+        const gt = restoreTargetForm.querySelector('input[type=hidden]').name.replace('id_','');
+        const inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = 'restore_' + gt; inp.value = '1';
+        restoreTargetForm.appendChild(inp);
         restoreTargetForm.submit();
     }
     closeRestoreModal();
 });
+document.getElementById('restoreModalOverlay').addEventListener('click', function(e){ if(e.target===this) closeRestoreModal(); });
 
-// Close on overlay click
-document.getElementById('restoreModalOverlay').addEventListener('click', function(e) {
-    if (e.target === this) closeRestoreModal();
-});
-
-// Close on Escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeRestoreModal();
-});
-</script>
-<script>
+// ── Single delete ───────────────────────────────────────────
 let targetForm = null;
-
 function openDeleteModal(btn) {
-    // Find the closest form to submit on confirm
     targetForm = btn.closest('form');
     document.getElementById('deleteModalOverlay').classList.add('show');
 }
-
 function closeDeleteModal() {
     document.getElementById('deleteModalOverlay').classList.remove('show');
     targetForm = null;
 }
-
 document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
     if (targetForm) {
-        // Add hidden input to trigger permanent_delete
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'permanent_delete';
-        input.value = '1';
-        targetForm.appendChild(input);
+        const inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = 'permanent_delete'; inp.value = '1';
+        targetForm.appendChild(inp);
         targetForm.submit();
     }
     closeDeleteModal();
 });
+document.getElementById('deleteModalOverlay').addEventListener('click', function(e){ if(e.target===this) closeDeleteModal(); });
 
-// Close on overlay click
-document.getElementById('deleteModalOverlay').addEventListener('click', function(e) {
-    if (e.target === this) closeDeleteModal();
+// ── Select All / checkbox logic ─────────────────────────────
+const selectAllChk = document.getElementById('selectAllChk');
+const bulkToolbar  = document.getElementById('bulkToolbar');
+const countSpan    = document.getElementById('selectedCount');
+
+function getChecked() {
+    return document.querySelectorAll('.row-checkbox:checked');
+}
+function updateToolbar() {
+    const n = getChecked().length;
+    countSpan.textContent = n;
+    if (n > 0) bulkToolbar.classList.add('show');
+    else        bulkToolbar.classList.remove('show');
+    // sync select-all indeterminate state
+    const all = document.querySelectorAll('.row-checkbox');
+    selectAllChk.checked       = n === all.length;
+    selectAllChk.indeterminate = n > 0 && n < all.length;
+}
+
+if (selectAllChk) {
+    selectAllChk.addEventListener('change', function () {
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = this.checked);
+        updateToolbar();
+    });
+}
+document.querySelectorAll('.row-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateToolbar);
 });
 
-// Close on Escape key
+// ── Bulk Restore ────────────────────────────────────────────
+function openBulkRestoreModal() {
+    document.getElementById('bulkRestoreCount').textContent = getChecked().length;
+    document.getElementById('bulkRestoreModalOverlay').classList.add('show');
+}
+function closeBulkRestoreModal() {
+    document.getElementById('bulkRestoreModalOverlay').classList.remove('show');
+}
+document.getElementById('confirmBulkRestoreBtn').addEventListener('click', function () {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'bulk_restore'; inp.value = '1';
+    document.getElementById('bulkForm').appendChild(inp);
+    document.getElementById('bulkForm').submit();
+    closeBulkRestoreModal();
+});
+document.getElementById('bulkRestoreModalOverlay').addEventListener('click', function(e){ if(e.target===this) closeBulkRestoreModal(); });
+
+// ── Bulk Delete ─────────────────────────────────────────────
+function openBulkDeleteModal() {
+    document.getElementById('bulkDeleteCount').textContent = getChecked().length;
+    document.getElementById('bulkDeleteModalOverlay').classList.add('show');
+}
+function closeBulkDeleteModal() {
+    document.getElementById('bulkDeleteModalOverlay').classList.remove('show');
+}
+document.getElementById('confirmBulkDeleteBtn').addEventListener('click', function () {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'bulk_delete'; inp.value = '1';
+    document.getElementById('bulkForm').appendChild(inp);
+    document.getElementById('bulkForm').submit();
+    closeBulkDeleteModal();
+});
+document.getElementById('bulkDeleteModalOverlay').addEventListener('click', function(e){ if(e.target===this) closeBulkDeleteModal(); });
+
+// ── Escape key closes any open modal ───────────────────────
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeDeleteModal();
+    if (e.key === 'Escape') {
+        closeRestoreModal(); closeDeleteModal();
+        closeBulkRestoreModal(); closeBulkDeleteModal();
+    }
 });
 </script>
 <!-- /.container-fluid -->

@@ -57,6 +57,7 @@
                     Search
                 </button>
                 <a href="admn_ten.php" class="btn btn-info" style="width: 90px; font-size: 17px; border-radius:30px;">Reload</a>
+                <a href="admn_classlist.php?grade=ten" class="btn btn-secondary ml-2" style="font-size:15px; border-radius:30px;"><i class="fas fa-print mr-1"></i> Class List</a>
             </form>
             <br>
         </div>
@@ -78,4 +79,4 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-modal/2.2.6/js/bootstrap-modalmanager.min.js" integrity="sha512-/HL24m2nmyI2+ccX+dSHphAHqLw60Oj5sK8jf59VWtFWZi9vx7jzoxbZmcBeeTeCUc7z1mTs3LfyXGuBU32t+w==" crossorigin="anonymous"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1 shrink-to-fit=no">
 <link href="../BarangaySystem/customcss/regiformstyle.css" rel="stylesheet" type="text/css">
-<link href="../BarangaySystem/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css"> 
+<link href="../BarangaySystem/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css">
