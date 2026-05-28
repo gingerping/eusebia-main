@@ -1,11 +1,11 @@
 <?php
-    
-   error_reporting(E_ALL ^ E_WARNING);
-   ini_set('display_errors',0);
-   require('classes/resident.class.php');
-   $userdetails = $residenteusebia->get_userdata();
-   $residenteusebia->validate_admin();
-   $eusebia->delete_eleven();
+ error_reporting(E_ALL ^ E_WARNING);
+    ini_set('display_errors',0);
+    require('classes/resident.class.php');
+    $userdetails = $eusebia->get_userdata();
+    $eusebia->validate_admin();
+    $eusebia->delete_eleven();
+    // Pass the sort and order to your function
    $view = $residenteusebia->view_eleven_abm();
    
 ?>
@@ -82,35 +82,35 @@
                 while($view = $stmnt->fetch()){
             ?>
                 <tr>
-                    <td> <?= $view['lrn'];?> </td>
-                    <td> <?= $view['course'];?> </td>  
-                    <td> <?= $view['lname'];?>, <?= $view['fname'];?> <?= $view['mi'];?></td>
-                    <td> <?= $view['bdate'];?> </td>
-                    <td> <?= $view['age'];?> </td>
-                    <td> <?= $view['contact'];?> </td>
-                    <td> <?= $view['email'];?> </td>
+                    <td> <?= $row['lrn'];?> </td>
+                    <td> <?= $row['course'];?> </td>  
+                    <td> <?= $row['lname'];?>, <?= $row['fname'];?> <?= $row['mi'];?></td>
+                    <td> <?= $row['bdate'];?> </td>
+                    <td> <?= $row['age'];?> </td>
+                    <td> <?= $row['contact'];?> </td>
+                    <td> <?= $row['email'];?> </td>
                     <td>    
-                        <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target="#viewModalSearch<?= $view['id_resident'] ?>">
+                        <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target="#viewModalSearch<?= $row['id_resident'] ?>">
                             <i class="fa fa-eye"></i> View
                         </button>
                         <form action="" method="post" style="display:inline;">
-                            <input type="hidden" name="id_eleven" value="<?= $view['id_eleven'];?>">
+                            <input type="hidden" name="id_eleven" value="<?= $row['id_eleven'];?>">
                             <button class="btn btn-danger" type="submit" style="width: 90px; font-size: 17px; border-radius:30px;" name="delete_eleven"> Archive </button>
                         </form>
                     </td>
                 </tr>
 
-                <div class="modal fade" id="viewModalSearch<?= $view['id_resident'] ?>" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal fade" id="viewModalSearch<?= $row['id_resident'] ?>" tabindex="-1" role="dialog" aria-hidden="true">
                     <div class="modal-dialog modal-md modal-dialog-centered" role="document">
                         <div class="modal-content">
                             <div class="modal-header bg-primary text-white">
-                                <h5 class="modal-title">Student Profile: <?= $view['fname'] ?></h5>
+                                <h5 class="modal-title">Student Profile: <?= $row['fname'] ?></h5>
                                 <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
                             </div>
                             <div class="modal-body text-left">
-                                <p><strong>LRN:</strong> <?= $view['lrn'] ?></p>
-                                <p><strong>Full Name:</strong> <?= $view['lname'] ?>, <?= $view['fname'] ?> <?= $view['mi'] ?></p>
-                                <p><strong>Age:</strong> <?= $view['age'] ?></p>
+                                <p><strong>LRN:</strong> <?= $row['lrn'] ?></p>
+                                <p><strong>Full Name:</strong> <?= $row['lname'] ?>, <?= $row['fname'] ?> <?= $row['mi'] ?></p>
+                                <p><strong>Age:</strong> <?= $row['age'] ?></p>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>

@@ -389,84 +389,114 @@ header("refresh: 0");
         $view = $stmt->fetchAll();
         return $view;
     }
-    public function view_eleven_stem(){
-        $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * from tbl_eleven WHERE `course` = 'STEM'");
-        $stmt->execute();
-        $view = $stmt->fetchAll();
-        return $view;
-    }
+ public function view_eleven_stem(){
+    $connection = $this->openConn();
+    $stmt = $connection->prepare(
+        "SELECT * FROM tbl_eleven 
+         WHERE course = 'STEM' 
+         AND (is_archived = 0 OR is_archived IS NULL)"
+    );
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
 
-    public function view_eleven_abm(){
-        $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * from tbl_eleven WHERE `course` = 'ABM'");
-        $stmt->execute();
-        $view = $stmt->fetchAll();
-        return $view;
-    }
+public function view_eleven_abm(){
+    $connection = $this->openConn();
+    $stmt = $connection->prepare(
+        "SELECT * FROM tbl_eleven 
+         WHERE course = 'ABM' 
+         AND (is_archived = 0 OR is_archived IS NULL)"
+    );
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
 
     public function view_eleven_gas(){
-        $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * from tbl_eleven WHERE `course` = 'GAS'");
-        $stmt->execute();
-        $view = $stmt->fetchAll();
-        return $view;
-    }
+    $connection = $this->openConn();
+    $stmt = $connection->prepare(
+        "SELECT * FROM tbl_eleven 
+         WHERE course = 'GAS' 
+         AND (is_archived = 0 OR is_archived IS NULL)"
+    );
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
 
-    public function view_eleven_ict(){
-        $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * from tbl_eleven WHERE `course` = 'TVL-ICT'");
-        $stmt->execute();
-        $view = $stmt->fetchAll();
-        return $view;
-    }
+public function view_eleven_ict(){
+    $connection = $this->openConn();
+    $stmt = $connection->prepare(
+        "SELECT * FROM tbl_eleven 
+         WHERE course = 'TVL-ICT' 
+         AND (is_archived = 0 OR is_archived IS NULL)"
+    );
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
 
-    public function view_eleven_he(){
-        $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * from tbl_eleven WHERE `course` = 'TVL-HE'");
-        $stmt->execute();
-        $view = $stmt->fetchAll();
-        return $view;
-    }
-    public function view_twelve_stem(){
-        $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * from tbl_twelve WHERE `course` = 'STEM'");
-        $stmt->execute();
-        $view = $stmt->fetchAll();
-        return $view;
-    }
-
+public function view_eleven_he(){
+    $connection = $this->openConn();
+    $stmt = $connection->prepare(
+        "SELECT * FROM tbl_eleven 
+         WHERE course = 'TVL-HE' 
+         AND (is_archived = 0 OR is_archived IS NULL)"
+    );
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
     public function view_twelve_abm(){
-        $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * from tbl_twelve WHERE `course` = 'ABM'");
-        $stmt->execute();
-        $view = $stmt->fetchAll();
-        return $view;
-    }
+    $connection = $this->openConn();
+    $stmt = $connection->prepare(
+        "SELECT * FROM tbl_twelve 
+         WHERE course = 'ABM' 
+         AND (is_archived = 0 OR is_archived IS NULL)"
+    );
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
 
-    public function view_twelve_gas(){
-        $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * from tbl_twelve WHERE `course` = 'GAS'");
-        $stmt->execute();
-        $view = $stmt->fetchAll();
-        return $view;
-    }
+public function view_twelve_stem(){
+    $connection = $this->openConn();
+    $stmt = $connection->prepare(
+        "SELECT * FROM tbl_twelve 
+         WHERE course = 'STEM' 
+         AND (is_archived = 0 OR is_archived IS NULL)"
+    );
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
 
-    public function view_twelve_ict(){
-        $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * from tbl_twelve WHERE `course` = 'TVL-ICT'");
-        $stmt->execute();
-        $view = $stmt->fetchAll();
-        return $view;
-    }
+public function view_twelve_gas(){
+    $connection = $this->openConn();
+    $stmt = $connection->prepare(
+        "SELECT * FROM tbl_twelve 
+         WHERE course = 'GAS' 
+         AND (is_archived = 0 OR is_archived IS NULL)"
+    );
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
 
-    public function view_twelve_he(){
-        $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * from tbl_twelve WHERE `course` = 'TVL-HE'");
-        $stmt->execute();
-        $view = $stmt->fetchAll();
-        return $view;
-    }
+public function view_twelve_ict(){
+    $connection = $this->openConn();
+    $stmt = $connection->prepare(
+        "SELECT * FROM tbl_twelve 
+         WHERE course = 'TVL-ICT' 
+         AND (is_archived = 0 OR is_archived IS NULL)"
+    );
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
+
+public function view_twelve_he(){
+    $connection = $this->openConn();
+    $stmt = $connection->prepare(
+        "SELECT * FROM tbl_twelve 
+         WHERE course = 'TVL-HE' 
+         AND (is_archived = 0 OR is_archived IS NULL)"
+    );
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
 
 public function view_eleven($sort = 'lname', $order = 'ASC') {
     // 1. Whitelist (Security check)
@@ -503,19 +533,36 @@ public function view_eleven($sort = 'lname', $order = 'ASC') {
         
 
     }
+    public function count_all_courses($table_name) {
+    $connection = $this->openConn();
+    $stmt = $connection->prepare(
+        "SELECT course, COUNT(*) as total 
+         FROM $table_name 
+         WHERE (is_archived = 0 OR is_archived IS NULL)
+         GROUP BY course
+         ORDER BY course"
+    );
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_KEY_PAIR); // returns ['CourseName' => count, ...]
+}
 public function count_by_grade($table_name, $column = null, $value = null) {
     $connection = $this->openConn();
-    
+
     if ($column === null) {
-        // Simple count for Grade 7, 8, 9, 10
-        $stmt = $connection->prepare("SELECT COUNT(*) FROM $table_name");
+        // Grade 7–10 (no strand)
+        $stmt = $connection->prepare(
+            "SELECT COUNT(*) FROM $table_name WHERE is_archived = 0 OR is_archived IS NULL"
+        );
         $stmt->execute();
     } else {
-        // Specific count for Strands (STEM, ABM, etc.)
-        $stmt = $connection->prepare("SELECT COUNT(*) FROM $table_name WHERE $column = ?");
+        // Grade 11–12 strands (STEM, ABM, GAS, TVL-ICT, TVL-HE)
+        $stmt = $connection->prepare(
+            "SELECT COUNT(*) FROM $table_name 
+             WHERE $column = ? AND (is_archived = 0 OR is_archived IS NULL)"
+        );
         $stmt->execute([$value]);
     }
-    
+
     return $stmt->fetchColumn();
 }
 

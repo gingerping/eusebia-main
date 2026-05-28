@@ -7,7 +7,7 @@
     $eusebia->validate_admin();
     $eusebia->delete_eleven();
     // Pass the sort and order to your function
-$view = $eusebia->view_eleven($current_sort, $current_order);
+$view = $eusebia->view_eleven();
     $id_resident = $_GET['id_resident'];
     $resident = $residenteusebia->get_single_eleven($id_resident);
     $stem_count = $residenteusebia->count_by_grade('tbl_eleven', 'course', 'STEM');
