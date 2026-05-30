@@ -21,6 +21,8 @@ $current_date = $dt->format('l, F j, Y');
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -298,6 +300,33 @@ $current_date = $dt->format('l, F j, Y');
     padding-right: 10px; /* avoid content cut-off */
 }
 
+        /* ========== DOCUMENT UPLOAD ========== */
+        .upload-area {
+            border: 2px dashed #2a6f9c;
+            border-radius: 20px;
+            padding: 1.5rem;
+            text-align: center;
+            background: #f0f6fb;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            background: #dceef9;
+        }
+        .file-preview-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 8px 14px;
+            margin-bottom: 6px;
+            font-size: 0.88rem;
+        }
+        .file-preview-item .file-icon { font-size: 1.2rem; color: #2a6f9c; }
+        .file-preview-item .remove-file { margin-left: auto; cursor: pointer; color: #dc3545; }
+
         @media (max-width: 768px) {
             .hero-title { font-size: 2.2rem; }
             .step-title { font-size: 1.3rem; }
@@ -387,7 +416,7 @@ $current_date = $dt->format('l, F j, Y');
 <div class="modal fade modern-modal" id="enrollmentModal" tabindex="-1" aria-labelledby="enrollmentModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <form method="post" class="was-validated">
+            <form method="post" enctype="multipart/form-data" class="was-validated">
                 <div class="modal-header">
                     <h5 class="modal-title fw-bold" id="enrollmentModalLabel"><i class="fas fa-edit me-2"></i>Grade 8 Enrollment Form</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -467,10 +496,23 @@ $current_date = $dt->format('l, F j, Y');
                         </div>
                     </div>
                     <input type="hidden" name="id_resident" value="<?= $userdetails['id_resident'] ?? ''; ?>">
+
+                    <!-- Document Upload Section -->
+                    <div class="form-section">
+                        <h6><i class="fas fa-file-upload me-2"></i>Upload Supporting Documents</h6>
+                        <p class="text-muted small mb-2">Attach required documents (e.g. PSA Birth Certificate, Report Card, Good Moral Certificate). You may select multiple files.</p>
+                        <div class="upload-area" id="uploadArea">
+                            <i class="fas fa-cloud-upload-alt fa-2x mb-2" style="color:#2a6f9c;"></i>
+                            <p class="mb-1 fw-semibold">Drag &amp; drop files here, or <span class="text-primary" style="cursor:pointer;" onclick="document.getElementById('docFiles').click()">browse</span></p>
+                            <p class="text-muted small mb-0">Accepted: PDF, JPG, PNG, DOC, DOCX &mdash; Max 5MB per file</p>
+                            <input type="file" id="docFiles" name="documents[]" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" class="d-none">
+                        </div>
+                        <div id="filePreviewList" class="mt-2"></div>
+                    </div>
                 </div>
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" name="create_eight" class="btn btn-enroll rounded-pill px-5">Submit Enrollment</button>
+                    <button type="submit" name="create_eight" class="btn btn-enroll rounded-pill px-5"><i class="fas fa-paper-plane me-2"></i>Submit Enrollment</button>
                 </div>
             </form>
         </div>
@@ -515,8 +557,69 @@ $current_date = $dt->format('l, F j, Y');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
-    // Tooltip initialization
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    // ========== DOCUMENT UPLOAD ==========
+    const uploadArea = document.getElementById('uploadArea');
+    const docFiles  = document.getElementById('docFiles');
+    const previewList = document.getElementById('filePreviewList');
+    let selectedFiles = [];
+
+    function iconForType(name) {
+        const ext = name.split('.').pop().toLowerCase();
+        if (['jpg','jpeg','png'].includes(ext)) return 'fas fa-image';
+        if (ext === 'pdf') return 'fas fa-file-pdf';
+        if (['doc','docx'].includes(ext)) return 'fas fa-file-word';
+        return 'fas fa-file-alt';
+    }
+
+    function renderPreviews() {
+        previewList.innerHTML = '';
+        selectedFiles.forEach((f, i) => {
+            const sizeKB = (f.size / 1024).toFixed(1);
+            const div = document.createElement('div');
+            div.className = 'file-preview-item';
+            div.innerHTML = `<i class="file-icon ${iconForType(f.name)}"></i>
+                <span class="text-truncate" style="max-width:60%;">${f.name}</span>
+                <span class="text-muted ms-1">(${sizeKB} KB)</span>
+                <i class="remove-file fas fa-times-circle" data-idx="${i}" title="Remove"></i>`;
+            previewList.appendChild(div);
+        });
+        // Sync to actual input via DataTransfer
+        const dt = new DataTransfer();
+        selectedFiles.forEach(f => dt.items.add(f));
+        docFiles.files = dt.files;
+        // Bind remove buttons
+        previewList.querySelectorAll('.remove-file').forEach(btn => {
+            btn.addEventListener('click', () => {
+                selectedFiles.splice(parseInt(btn.dataset.idx), 1);
+                renderPreviews();
+            });
+        });
+    }
+
+    function addFiles(fileList) {
+        const MAX = 5 * 1024 * 1024;
+        Array.from(fileList).forEach(f => {
+            if (f.size > MAX) { alert(`"${f.name}" exceeds 5MB limit and was skipped.`); return; }
+            if (!selectedFiles.find(sf => sf.name === f.name && sf.size === f.size)) {
+                selectedFiles.push(f);
+            }
+        });
+        renderPreviews();
+    }
+
+    uploadArea.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('text-primary')) docFiles.click();
+    });
+    docFiles.addEventListener('change', () => addFiles(docFiles.files));
+
+    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', ()  => uploadArea.classList.remove('dragover'));
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        addFiles(e.dataTransfer.files);
+    });
+
     tooltipTriggerList.map(el => new bootstrap.Tooltip(el));
 </script>
 </body>

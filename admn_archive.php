@@ -15,19 +15,35 @@
     $eusebia->restore_twelve();
 
     // Handle permanent delete (single)
-    if (isset($_POST['permanent_delete'])) {
-        $grade_table = $_POST['grade_table'];
-        $record_id   = $_POST['record_id'];
-        $allowed_tables = ['seven','eight','nine','ten','eleven','twelve'];
-        if (in_array($grade_table, $allowed_tables)) {
-            $connection = $eusebia->openConn();
-            $id_col = 'id_' . $grade_table;
-            $stmt = $connection->prepare("DELETE FROM tbl_{$grade_table} WHERE {$id_col} = ? AND is_archived = 1");
-            $stmt->execute([$record_id]);
+    // Handle permanent delete (single)
+if (isset($_POST['permanent_delete'])) {
+    $grade_table = $_POST['grade_table'];
+    $record_id   = $_POST['record_id'];
+    $allowed_tables = ['seven','eight','nine','ten','eleven','twelve'];
+    if (in_array($grade_table, $allowed_tables)) {
+        $connection = $eusebia->openConn();
+        $id_col = 'id_' . $grade_table;
+
+        // Delete uploaded files first
+        $fetch = $connection->prepare("SELECT documents FROM tbl_{$grade_table} WHERE {$id_col} = ?");
+        $fetch->execute([$record_id]);
+        $row = $fetch->fetch();
+        if ($row && !empty($row['documents'])) {
+            $docs = json_decode($row['documents'], true);
+            if (is_array($docs)) {
+                foreach ($docs as $filePath) {
+                    $absPath = __DIR__ . '/' . $filePath;
+                    if (file_exists($absPath)) unlink($absPath);
+                }
+            }
         }
-        header("Location: admn_archive.php");
-        exit();
+
+        $stmt = $connection->prepare("DELETE FROM tbl_{$grade_table} WHERE {$id_col} = ? AND is_archived = 1");
+        $stmt->execute([$record_id]);
     }
+    header("Location: admn_archive.php");
+    exit();
+}
 
     // Handle BULK restore
     if (isset($_POST['bulk_restore']) && !empty($_POST['selected_records'])) {
@@ -46,20 +62,35 @@
     }
 
     // Handle BULK delete
-    if (isset($_POST['bulk_delete']) && !empty($_POST['selected_records'])) {
-        $allowed_tables = ['seven','eight','nine','ten','eleven','twelve'];
-        $connection = $eusebia->openConn();
-        foreach ($_POST['selected_records'] as $entry) {
-            list($grade_table, $record_id) = explode(':', $entry, 2);
-            if (in_array($grade_table, $allowed_tables) && is_numeric($record_id)) {
-                $id_col = 'id_' . $grade_table;
-                $stmt = $connection->prepare("DELETE FROM tbl_{$grade_table} WHERE {$id_col} = ? AND is_archived = 1");
-                $stmt->execute([$record_id]);
+if (isset($_POST['bulk_delete']) && !empty($_POST['selected_records'])) {
+    $allowed_tables = ['seven','eight','nine','ten','eleven','twelve'];
+    $connection = $eusebia->openConn();
+    foreach ($_POST['selected_records'] as $entry) {
+        list($grade_table, $record_id) = explode(':', $entry, 2);
+        if (in_array($grade_table, $allowed_tables) && is_numeric($record_id)) {
+            $id_col = 'id_' . $grade_table;
+
+            // Delete uploaded files first
+            $fetch = $connection->prepare("SELECT documents FROM tbl_{$grade_table} WHERE {$id_col} = ?");
+            $fetch->execute([$record_id]);
+            $row = $fetch->fetch();
+            if ($row && !empty($row['documents'])) {
+                $docs = json_decode($row['documents'], true);
+                if (is_array($docs)) {
+                    foreach ($docs as $filePath) {
+                        $absPath = __DIR__ . '/' . $filePath;
+                        if (file_exists($absPath)) unlink($absPath);
+                    }
+                }
             }
+
+            $stmt = $connection->prepare("DELETE FROM tbl_{$grade_table} WHERE {$id_col} = ? AND is_archived = 1");
+            $stmt->execute([$record_id]);
         }
-        header("Location: admn_archive.php");
-        exit();
     }
+    header("Location: admn_archive.php");
+    exit();
+}
 
     // Collect all archived records
     $archived_seven   = $eusebia->view_archived_seven()   ?: [];

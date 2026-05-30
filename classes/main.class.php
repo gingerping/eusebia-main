@@ -331,6 +331,32 @@ public function get_userdata() {
         // Add this to link the record to the logged-in user
         $id_resident = $_POST['id_resident'] ?? ''; 
 
+        // Handle multiple document uploads
+        $uploadedPaths = [];
+        if (!empty($_FILES['documents']['name'][0])) {
+            $uploadDir = __DIR__ . '/../uploads/documents/seven/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $allowedTypes = ['application/pdf', 'image/jpeg', 'image/png',
+                             'application/msword',
+                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            $maxSize = 5 * 1024 * 1024; // 5MB
+            foreach ($_FILES['documents']['tmp_name'] as $idx => $tmpName) {
+                if ($_FILES['documents']['error'][$idx] !== UPLOAD_ERR_OK) continue;
+                if ($_FILES['documents']['size'][$idx] > $maxSize) continue;
+                $ftype = mime_content_type($tmpName);
+                if (!in_array($ftype, $allowedTypes)) continue;
+                $origName = basename($_FILES['documents']['name'][$idx]);
+                $safeName = time() . '_' . $idx . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $origName);
+                $dest = $uploadDir . $safeName;
+                if (move_uploaded_file($tmpName, $dest)) {
+                    $uploadedPaths[] = 'uploads/documents/seven/' . $safeName;
+                }
+            }
+        }
+        $documents_json = !empty($uploadedPaths) ? json_encode($uploadedPaths) : null;
+
         $connection = $this->openConn();
         
         // I have added `id_resident` here so you know which user owns the enrollment
@@ -338,17 +364,17 @@ public function get_userdata() {
             `sy`, `lrn`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, 
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, 
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, 
-            `lsa`, `lysc`, `school_id`, `id_resident`
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         
         $stmt = $connection->prepare($query);
         
-        // Ensure the count of elements in this array matches the number of '?' (23 total)
+        // Ensure the count of elements in this array matches the number of '?' (26 total)
         $stmt->execute([
             $sy, $lrn, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email, 
             $current_address, $perm_address, $ffname, $flname, $fmi, 
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc, 
-            $lsa, $lysc, $school_id, $id_resident
+            $lsa, $lysc, $school_id, $id_resident, $documents_json
         ]);
 
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
@@ -373,6 +399,7 @@ public function get_userdata() {
         exit(); 
     }
 }
+
 
 public function get_single_seven($id_resident){
 
@@ -478,7 +505,7 @@ public function update_seven() {
     }
 }
 
-public function create_eight() {
+ public function create_eight() {
     if(isset($_POST['create_eight'])) {
         $sy = $_POST['sy'] ?? '';
         $lrn = $_POST['lrn'] ?? '';
@@ -504,24 +531,53 @@ public function create_eight() {
         $lsa = $_POST['lsa'] ?? '';
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
+        // Add this to link the record to the logged-in user
         $id_resident = $_POST['id_resident'] ?? ''; 
+
+        // Handle multiple document uploads
+        $uploadedPaths = [];
+        if (!empty($_FILES['documents']['name'][0])) {
+            $uploadDir = __DIR__ . '/../uploads/documents/eight/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $allowedTypes = ['application/pdf', 'image/jpeg', 'image/png',
+                             'application/msword',
+                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            $maxSize = 5 * 1024 * 1024; // 5MB
+            foreach ($_FILES['documents']['tmp_name'] as $idx => $tmpName) {
+                if ($_FILES['documents']['error'][$idx] !== UPLOAD_ERR_OK) continue;
+                if ($_FILES['documents']['size'][$idx] > $maxSize) continue;
+                $ftype = mime_content_type($tmpName);
+                if (!in_array($ftype, $allowedTypes)) continue;
+                $origName = basename($_FILES['documents']['name'][$idx]);
+                $safeName = time() . '_' . $idx . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $origName);
+                $dest = $uploadDir . $safeName;
+                if (move_uploaded_file($tmpName, $dest)) {
+                    $uploadedPaths[] = 'uploads/documents/eight/' . $safeName;
+                }
+            }
+        }
+        $documents_json = !empty($uploadedPaths) ? json_encode($uploadedPaths) : null;
 
         $connection = $this->openConn();
         
+        // I have added `id_resident` here so you know which user owns the enrollment
         $query = "INSERT INTO tbl_eight (
             `sy`, `lrn`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, 
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, 
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, 
-            `lsa`, `lysc`, `school_id`, `id_resident`
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         
         $stmt = $connection->prepare($query);
         
+        // Ensure the count of elements in this array matches the number of '?' (26 total)
         $stmt->execute([
             $sy, $lrn, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email, 
             $current_address, $perm_address, $ffname, $flname, $fmi, 
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc, 
-            $lsa, $lysc, $school_id, $id_resident
+            $lsa, $lysc, $school_id, $id_resident, $documents_json
         ]);
 
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
@@ -546,7 +602,6 @@ public function create_eight() {
         exit(); 
     }
 }
-
 public function get_single_eight($id_resident){
     $id_resident = $_GET['id_resident'];
     
@@ -649,53 +704,80 @@ public function update_eight() {
 }
 
 public function create_nine() {
-        if(isset($_POST['create_nine'])) {
-            $sy = $_POST['sy'] ?? '';
-            $lrn = $_POST['lrn'] ?? '';
-            $course = $_POST['course'] ?? '';
-            $lname = $_POST['lname'] ?? '';
-            $fname = $_POST['fname'] ?? '';
-            $mi = $_POST['mi'] ?? '';
-            $bdate = $_POST['bdate'] ?? '';
-            $sex = $_POST['sex'] ?? '';
-            $age = $_POST['age'] ?? '';
-            $contact = $_POST['contact'] ?? '';
-            $email = $_POST['email'] ?? '';
-            $current_address = $_POST['current_address'] ?? '';
-            $perm_address = $_POST['perm_address'] ?? '';
-            $ffname = $_POST['ffname'] ?? '';
-            $flname = $_POST['flname'] ?? '';
-            $fmi = $_POST['fmi'] ?? '';
-            $contact_f = $_POST['contact_f'] ?? ''; 
-            $mlname = $_POST['mlname'] ?? '';
-            $mfname = $_POST['mfname'] ?? '';
-            $mmi = $_POST['mmi'] ?? '';
-            $contact_m = $_POST['contact_m'] ?? '';
-            $lglc = $_POST['lglc'] ?? '';
-            $lsa = $_POST['lsa'] ?? '';
-            $lysc = $_POST['lysc'] ?? '';
-            $school_id = $_POST['school_id'] ?? '';
-            $id_resident = $_POST['id_resident'] ?? ''; 
+    if(isset($_POST['create_nine'])) {
+        $sy = $_POST['sy'] ?? '';
+        $lrn = $_POST['lrn'] ?? '';
+        $course = $_POST['course'] ?? '';
+        $lname = $_POST['lname'] ?? '';
+        $fname = $_POST['fname'] ?? '';
+        $mi = $_POST['mi'] ?? '';
+        $bdate = $_POST['bdate'] ?? '';
+        $sex = $_POST['sex'] ?? '';
+        $age = $_POST['age'] ?? '';
+        $contact = $_POST['contact'] ?? '';
+        $email = $_POST['email'] ?? '';
+        $current_address = $_POST['current_address'] ?? '';
+        $perm_address = $_POST['perm_address'] ?? '';
+        $ffname = $_POST['ffname'] ?? '';
+        $flname = $_POST['flname'] ?? '';
+        $fmi = $_POST['fmi'] ?? '';
+        $contact_f = $_POST['contact_f'] ?? '';
+        $mlname = $_POST['mlname'] ?? '';
+        $mfname = $_POST['mfname'] ?? '';
+        $mmi = $_POST['mmi'] ?? '';
+        $contact_m = $_POST['contact_m'] ?? '';
+        $lglc = $_POST['lglc'] ?? '';
+        $lsa = $_POST['lsa'] ?? '';
+        $lysc = $_POST['lysc'] ?? '';
+        $school_id = $_POST['school_id'] ?? '';
+        $id_resident = $_POST['id_resident'] ?? '';
 
-            $connection = $this->openConn();
-            
-            $query = "INSERT INTO tbl_nine (
-                `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, 
-                `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, 
-                `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, 
-                `lsa`, `lysc`, `school_id`, `id_resident`
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-            
-            $stmt = $connection->prepare($query);
-            
-            $stmt->execute([
-                $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email, 
-                $current_address, $perm_address, $ffname, $flname, $fmi, 
-                $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc, 
-                $lsa, $lysc, $school_id, $id_resident
-            ]);
+        // Handle multiple document/picture uploads
+        $uploadedPaths = [];
+        if (!empty($_FILES['documents']['name'][0])) {
+            $uploadDir = __DIR__ . '/../uploads/documents/nine/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $allowedTypes = [
+                'application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ];
+            $maxSize = 5 * 1024 * 1024; // 5MB
+            foreach ($_FILES['documents']['tmp_name'] as $idx => $tmpName) {
+                if ($_FILES['documents']['error'][$idx] !== UPLOAD_ERR_OK) continue;
+                if ($_FILES['documents']['size'][$idx] > $maxSize) continue;
+                $ftype = mime_content_type($tmpName);
+                if (!in_array($ftype, $allowedTypes)) continue;
+                $origName = basename($_FILES['documents']['name'][$idx]);
+                $safeName = time() . '_' . $idx . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $origName);
+                $dest = $uploadDir . $safeName;
+                if (move_uploaded_file($tmpName, $dest)) {
+                    $uploadedPaths[] = 'uploads/documents/nine/' . $safeName;
+                }
+            }
+        }
+        $documents_json = !empty($uploadedPaths) ? json_encode($uploadedPaths) : null;
 
-            echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
+        $connection = $this->openConn();
+
+        $query = "INSERT INTO tbl_nine (
+            `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`,
+            `current_address`, `perm_address`, `ffname`, `flname`, `fmi`,
+            `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`,
+            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+
+        $stmt = $connection->prepare($query);
+        $stmt->execute([
+            $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email,
+            $current_address, $perm_address, $ffname, $flname, $fmi,
+            $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc,
+            $lsa, $lysc, $school_id, $id_resident, $documents_json
+        ]);
+
+        echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
 <script>
     var script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
@@ -714,9 +796,9 @@ public function create_nine() {
     };
     document.head.appendChild(script);
 </script>";
-            exit(); 
-        }
+        exit();
     }
+}
 
     public function get_single_nine($id_resident){
         // Removed the $_GET overwrite so it uses the passed ID correctly
@@ -818,53 +900,80 @@ public function create_nine() {
     }
 
     public function create_ten() {
-        if(isset($_POST['create_ten'])) {
-            $sy = $_POST['sy'] ?? '';
-            $lrn = $_POST['lrn'] ?? '';
-            $course = $_POST['course'] ?? '';
-            $lname = $_POST['lname'] ?? '';
-            $fname = $_POST['fname'] ?? '';
-            $mi = $_POST['mi'] ?? '';
-            $bdate = $_POST['bdate'] ?? '';
-            $sex = $_POST['sex'] ?? '';
-            $age = $_POST['age'] ?? '';
-            $contact = $_POST['contact'] ?? '';
-            $email = $_POST['email'] ?? '';
-            $current_address = $_POST['current_address'] ?? '';
-            $perm_address = $_POST['perm_address'] ?? '';
-            $ffname = $_POST['ffname'] ?? '';
-            $flname = $_POST['flname'] ?? '';
-            $fmi = $_POST['fmi'] ?? '';
-            $contact_f = $_POST['contact_f'] ?? ''; 
-            $mlname = $_POST['mlname'] ?? '';
-            $mfname = $_POST['mfname'] ?? '';
-            $mmi = $_POST['mmi'] ?? '';
-            $contact_m = $_POST['contact_m'] ?? '';
-            $lglc = $_POST['lglc'] ?? '';
-            $lsa = $_POST['lsa'] ?? '';
-            $lysc = $_POST['lysc'] ?? '';
-            $school_id = $_POST['school_id'] ?? '';
-            $id_resident = $_POST['id_resident'] ?? ''; 
+    if(isset($_POST['create_ten'])) {
+        $sy = $_POST['sy'] ?? '';
+        $lrn = $_POST['lrn'] ?? '';
+        $course = $_POST['course'] ?? '';
+        $lname = $_POST['lname'] ?? '';
+        $fname = $_POST['fname'] ?? '';
+        $mi = $_POST['mi'] ?? '';
+        $bdate = $_POST['bdate'] ?? '';
+        $sex = $_POST['sex'] ?? '';
+        $age = $_POST['age'] ?? '';
+        $contact = $_POST['contact'] ?? '';
+        $email = $_POST['email'] ?? '';
+        $current_address = $_POST['current_address'] ?? '';
+        $perm_address = $_POST['perm_address'] ?? '';
+        $ffname = $_POST['ffname'] ?? '';
+        $flname = $_POST['flname'] ?? '';
+        $fmi = $_POST['fmi'] ?? '';
+        $contact_f = $_POST['contact_f'] ?? '';
+        $mlname = $_POST['mlname'] ?? '';
+        $mfname = $_POST['mfname'] ?? '';
+        $mmi = $_POST['mmi'] ?? '';
+        $contact_m = $_POST['contact_m'] ?? '';
+        $lglc = $_POST['lglc'] ?? '';
+        $lsa = $_POST['lsa'] ?? '';
+        $lysc = $_POST['lysc'] ?? '';
+        $school_id = $_POST['school_id'] ?? '';
+        $id_resident = $_POST['id_resident'] ?? '';
 
-            $connection = $this->openConn();
-            
-            $query = "INSERT INTO tbl_ten (
-                `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, 
-                `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, 
-                `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, 
-                `lsa`, `lysc`, `school_id`, `id_resident`
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-            
-            $stmt = $connection->prepare($query);
-            
-            $stmt->execute([
-                $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email, 
-                $current_address, $perm_address, $ffname, $flname, $fmi, 
-                $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc, 
-                $lsa, $lysc, $school_id, $id_resident
-            ]);
+        // Handle multiple document/picture uploads
+        $uploadedPaths = [];
+        if (!empty($_FILES['documents']['name'][0])) {
+            $uploadDir = __DIR__ . '/../uploads/documents/ten/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $allowedTypes = [
+                'application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ];
+            $maxSize = 5 * 1024 * 1024; // 5MB
+            foreach ($_FILES['documents']['tmp_name'] as $idx => $tmpName) {
+                if ($_FILES['documents']['error'][$idx] !== UPLOAD_ERR_OK) continue;
+                if ($_FILES['documents']['size'][$idx] > $maxSize) continue;
+                $ftype = mime_content_type($tmpName);
+                if (!in_array($ftype, $allowedTypes)) continue;
+                $origName = basename($_FILES['documents']['name'][$idx]);
+                $safeName = time() . '_' . $idx . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $origName);
+                $dest = $uploadDir . $safeName;
+                if (move_uploaded_file($tmpName, $dest)) {
+                    $uploadedPaths[] = 'uploads/documents/ten/' . $safeName;
+                }
+            }
+        }
+        $documents_json = !empty($uploadedPaths) ? json_encode($uploadedPaths) : null;
 
-            echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
+        $connection = $this->openConn();
+
+        $query = "INSERT INTO tbl_ten (
+            `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`,
+            `current_address`, `perm_address`, `ffname`, `flname`, `fmi`,
+            `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`,
+            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+
+        $stmt = $connection->prepare($query);
+        $stmt->execute([
+            $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email,
+            $current_address, $perm_address, $ffname, $flname, $fmi,
+            $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc,
+            $lsa, $lysc, $school_id, $id_resident, $documents_json
+        ]);
+
+        echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
 <script>
     var script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
@@ -883,9 +992,9 @@ public function create_nine() {
     };
     document.head.appendChild(script);
 </script>";
-            exit(); 
-        }
+        exit();
     }
+}
 
     public function get_single_ten($id_resident){
         // Removed the $_GET overwrite so it uses the passed ID correctly
@@ -987,53 +1096,80 @@ public function create_nine() {
     } 
 
     public function create_eleven() {
-        if(isset($_POST['create_eleven'])) {
-            $sy = $_POST['sy'] ?? '';
-            $lrn = $_POST['lrn'] ?? '';
-            $course = $_POST['course'] ?? '';
-            $lname = $_POST['lname'] ?? '';
-            $fname = $_POST['fname'] ?? '';
-            $mi = $_POST['mi'] ?? '';
-            $bdate = $_POST['bdate'] ?? '';
-            $sex = $_POST['sex'] ?? '';
-            $age = $_POST['age'] ?? '';
-            $contact = $_POST['contact'] ?? '';
-            $email = $_POST['email'] ?? '';
-            $current_address = $_POST['current_address'] ?? '';
-            $perm_address = $_POST['perm_address'] ?? '';
-            $ffname = $_POST['ffname'] ?? '';
-            $flname = $_POST['flname'] ?? '';
-            $fmi = $_POST['fmi'] ?? '';
-            $contact_f = $_POST['contact_f'] ?? ''; 
-            $mlname = $_POST['mlname'] ?? '';
-            $mfname = $_POST['mfname'] ?? '';
-            $mmi = $_POST['mmi'] ?? '';
-            $contact_m = $_POST['contact_m'] ?? '';
-            $lglc = $_POST['lglc'] ?? '';
-            $lsa = $_POST['lsa'] ?? '';
-            $lysc = $_POST['lysc'] ?? '';
-            $school_id = $_POST['school_id'] ?? '';
-            $id_resident = $_POST['id_resident'] ?? ''; 
+    if(isset($_POST['create_eleven'])) {
+        $sy = $_POST['sy'] ?? '';
+        $lrn = $_POST['lrn'] ?? '';
+        $course = $_POST['course'] ?? '';
+        $lname = $_POST['lname'] ?? '';
+        $fname = $_POST['fname'] ?? '';
+        $mi = $_POST['mi'] ?? '';
+        $bdate = $_POST['bdate'] ?? '';
+        $sex = $_POST['sex'] ?? '';
+        $age = $_POST['age'] ?? '';
+        $contact = $_POST['contact'] ?? '';
+        $email = $_POST['email'] ?? '';
+        $current_address = $_POST['current_address'] ?? '';
+        $perm_address = $_POST['perm_address'] ?? '';
+        $ffname = $_POST['ffname'] ?? '';
+        $flname = $_POST['flname'] ?? '';
+        $fmi = $_POST['fmi'] ?? '';
+        $contact_f = $_POST['contact_f'] ?? '';
+        $mlname = $_POST['mlname'] ?? '';
+        $mfname = $_POST['mfname'] ?? '';
+        $mmi = $_POST['mmi'] ?? '';
+        $contact_m = $_POST['contact_m'] ?? '';
+        $lglc = $_POST['lglc'] ?? '';
+        $lsa = $_POST['lsa'] ?? '';
+        $lysc = $_POST['lysc'] ?? '';
+        $school_id = $_POST['school_id'] ?? '';
+        $id_resident = $_POST['id_resident'] ?? '';
 
-            $connection = $this->openConn();
-            
-            $query = "INSERT INTO tbl_eleven (
-                `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, 
-                `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, 
-                `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, 
-                `lsa`, `lysc`, `school_id`, `id_resident`
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-            
-            $stmt = $connection->prepare($query);
-            
-            $stmt->execute([
-                $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email, 
-                $current_address, $perm_address, $ffname, $flname, $fmi, 
-                $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc, 
-                $lsa, $lysc, $school_id, $id_resident
-            ]);
+        // Handle multiple document/picture uploads
+        $uploadedPaths = [];
+        if (!empty($_FILES['documents']['name'][0])) {
+            $uploadDir = __DIR__ . '/../uploads/documents/eleven/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $allowedTypes = [
+                'application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ];
+            $maxSize = 5 * 1024 * 1024; // 5MB
+            foreach ($_FILES['documents']['tmp_name'] as $idx => $tmpName) {
+                if ($_FILES['documents']['error'][$idx] !== UPLOAD_ERR_OK) continue;
+                if ($_FILES['documents']['size'][$idx] > $maxSize) continue;
+                $ftype = mime_content_type($tmpName);
+                if (!in_array($ftype, $allowedTypes)) continue;
+                $origName = basename($_FILES['documents']['name'][$idx]);
+                $safeName = time() . '_' . $idx . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $origName);
+                $dest = $uploadDir . $safeName;
+                if (move_uploaded_file($tmpName, $dest)) {
+                    $uploadedPaths[] = 'uploads/documents/eleven/' . $safeName;
+                }
+            }
+        }
+        $documents_json = !empty($uploadedPaths) ? json_encode($uploadedPaths) : null;
 
-            echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
+        $connection = $this->openConn();
+
+        $query = "INSERT INTO tbl_eleven (
+            `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`,
+            `current_address`, `perm_address`, `ffname`, `flname`, `fmi`,
+            `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`,
+            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+
+        $stmt = $connection->prepare($query);
+        $stmt->execute([
+            $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email,
+            $current_address, $perm_address, $ffname, $flname, $fmi,
+            $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc,
+            $lsa, $lysc, $school_id, $id_resident, $documents_json
+        ]);
+
+        echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
 <script>
     var script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
@@ -1052,9 +1188,9 @@ public function create_nine() {
     };
     document.head.appendChild(script);
 </script>";
-            exit(); 
-        }
+        exit();
     }
+}
 
     public function get_single_eleven($id_resident){
         // Removed the $_GET overwrite so it uses the passed ID correctly
@@ -1155,53 +1291,80 @@ public function create_nine() {
     }
 
      public function create_twelve() {
-        if(isset($_POST['create_twelve'])) {
-            $sy = $_POST['sy'] ?? '';
-            $lrn = $_POST['lrn'] ?? '';
-            $course = $_POST['course'] ?? '';
-            $lname = $_POST['lname'] ?? '';
-            $fname = $_POST['fname'] ?? '';
-            $mi = $_POST['mi'] ?? '';
-            $bdate = $_POST['bdate'] ?? '';
-            $sex = $_POST['sex'] ?? '';
-            $age = $_POST['age'] ?? '';
-            $contact = $_POST['contact'] ?? '';
-            $email = $_POST['email'] ?? '';
-            $current_address = $_POST['current_address'] ?? '';
-            $perm_address = $_POST['perm_address'] ?? '';
-            $ffname = $_POST['ffname'] ?? '';
-            $flname = $_POST['flname'] ?? '';
-            $fmi = $_POST['fmi'] ?? '';
-            $contact_f = $_POST['contact_f'] ?? ''; 
-            $mlname = $_POST['mlname'] ?? '';
-            $mfname = $_POST['mfname'] ?? '';
-            $mmi = $_POST['mmi'] ?? '';
-            $contact_m = $_POST['contact_m'] ?? '';
-            $lglc = $_POST['lglc'] ?? '';
-            $lsa = $_POST['lsa'] ?? '';
-            $lysc = $_POST['lysc'] ?? '';
-            $school_id = $_POST['school_id'] ?? '';
-            $id_resident = $_POST['id_resident'] ?? ''; 
+    if(isset($_POST['create_twelve'])) {
+        $sy = $_POST['sy'] ?? '';
+        $lrn = $_POST['lrn'] ?? '';
+        $course = $_POST['course'] ?? '';
+        $lname = $_POST['lname'] ?? '';
+        $fname = $_POST['fname'] ?? '';
+        $mi = $_POST['mi'] ?? '';
+        $bdate = $_POST['bdate'] ?? '';
+        $sex = $_POST['sex'] ?? '';
+        $age = $_POST['age'] ?? '';
+        $contact = $_POST['contact'] ?? '';
+        $email = $_POST['email'] ?? '';
+        $current_address = $_POST['current_address'] ?? '';
+        $perm_address = $_POST['perm_address'] ?? '';
+        $ffname = $_POST['ffname'] ?? '';
+        $flname = $_POST['flname'] ?? '';
+        $fmi = $_POST['fmi'] ?? '';
+        $contact_f = $_POST['contact_f'] ?? '';
+        $mlname = $_POST['mlname'] ?? '';
+        $mfname = $_POST['mfname'] ?? '';
+        $mmi = $_POST['mmi'] ?? '';
+        $contact_m = $_POST['contact_m'] ?? '';
+        $lglc = $_POST['lglc'] ?? '';
+        $lsa = $_POST['lsa'] ?? '';
+        $lysc = $_POST['lysc'] ?? '';
+        $school_id = $_POST['school_id'] ?? '';
+        $id_resident = $_POST['id_resident'] ?? '';
 
-            $connection = $this->openConn();
-            
-            $query = "INSERT INTO tbl_twelve (
-                `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, 
-                `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, 
-                `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, 
-                `lsa`, `lysc`, `school_id`, `id_resident`
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-            
-            $stmt = $connection->prepare($query);
-            
-            $stmt->execute([
-                $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email, 
-                $current_address, $perm_address, $ffname, $flname, $fmi, 
-                $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc, 
-                $lsa, $lysc, $school_id, $id_resident
-            ]);
+        // Handle multiple document/picture uploads
+        $uploadedPaths = [];
+        if (!empty($_FILES['documents']['name'][0])) {
+            $uploadDir = __DIR__ . '/../uploads/documents/twelve/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $allowedTypes = [
+                'application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ];
+            $maxSize = 5 * 1024 * 1024; // 5MB
+            foreach ($_FILES['documents']['tmp_name'] as $idx => $tmpName) {
+                if ($_FILES['documents']['error'][$idx] !== UPLOAD_ERR_OK) continue;
+                if ($_FILES['documents']['size'][$idx] > $maxSize) continue;
+                $ftype = mime_content_type($tmpName);
+                if (!in_array($ftype, $allowedTypes)) continue;
+                $origName = basename($_FILES['documents']['name'][$idx]);
+                $safeName = time() . '_' . $idx . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $origName);
+                $dest = $uploadDir . $safeName;
+                if (move_uploaded_file($tmpName, $dest)) {
+                    $uploadedPaths[] = 'uploads/documents/twelve/' . $safeName;
+                }
+            }
+        }
+        $documents_json = !empty($uploadedPaths) ? json_encode($uploadedPaths) : null;
 
-            echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
+        $connection = $this->openConn();
+
+        $query = "INSERT INTO tbl_twelve (
+            `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`,
+            `current_address`, `perm_address`, `ffname`, `flname`, `fmi`,
+            `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`,
+            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+
+        $stmt = $connection->prepare($query);
+        $stmt->execute([
+            $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email,
+            $current_address, $perm_address, $ffname, $flname, $fmi,
+            $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc,
+            $lsa, $lysc, $school_id, $id_resident, $documents_json
+        ]);
+
+        echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
 <script>
     var script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
@@ -1220,9 +1383,9 @@ public function create_nine() {
     };
     document.head.appendChild(script);
 </script>";
-            exit(); 
-        }
+        exit();
     }
+}
 
     public function get_single_twelve($id_resident){
         // Removed the $_GET overwrite so it uses the passed ID correctly
