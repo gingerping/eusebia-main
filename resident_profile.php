@@ -16,6 +16,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b2b5c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="EPAMNHS">
+  <link rel="apple-touch-icon" href="icons/pwa/icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/pwa/icon-192x192.png">
     <title>EPAMNHS | My Profile</title>
 
     <!-- Google Fonts & Icons -->
@@ -392,5 +401,6 @@
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(el => new bootstrap.Tooltip(el));
 </script>
+<script src="js/pwa.js"></script>
 </body>
 </html>

@@ -1,0 +1,91 @@
+{
+  "name": "Eusebia Paz Arroyo Memorial National High School",
+  "short_name": "EPAMNHS",
+  "description": "EPAMNHS Portal – student records, grade management, and school services.",
+  "start_url": "/index.php",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b2b5c",
+  "theme_color": "#0b2b5c",
+  "lang": "en-PH",
+  "categories": ["education"],
+  "icons": [
+    {
+      "src": "icons/pwa/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/pwa/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/pwa/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/pwa/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/pwa/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/pwa/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/pwa/icon-192x192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/pwa/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/pwa/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/pwa/icon-512x512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Login",
+      "short_name": "Login",
+      "description": "Go to the login page",
+      "url": "/login.php",
+      "icons": [{ "src": "icons/pwa/icon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Admin Dashboard",
+      "short_name": "Dashboard",
+      "description": "Open admin dashboard",
+      "url": "/admn_dashboard.php",
+      "icons": [{ "src": "icons/pwa/icon-96x96.png", "sizes": "96x96" }]
+    }
+  ]
+}

@@ -25,6 +25,15 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-modal/2.2.6/js/bootstrap-modalmanager.min.js" integrity="sha512-/HL24m2nmyI2+ccX+dSHphAHqLw60Oj5sK8jf59VWtFWZi9vx7jzoxbZmcBeeTeCUc7z1mTs3LfyXGuBU32t+w==" crossorigin="anonymous"></script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b2b5c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="EPAMNHS">
+  <link rel="apple-touch-icon" href="icons/pwa/icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/pwa/icon-192x192.png">
         <link href="../BarangaySystem/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css"> 
         <script src="https://kit.fontawesome.com/67a9b7069e.js" crossorigin="anonymous"></script>
     </head>
@@ -515,5 +524,6 @@
         </footer>
 
         <script src="../BarangaySystem/bootstrap/js/bootstrap.bundle.js" type="text/javascript"> </script>
-    </body>
+    <script src="js/pwa.js"></script>
+</body>
 </html>

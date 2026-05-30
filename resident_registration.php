@@ -8,6 +8,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b2b5c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="EPAMNHS">
+  <link rel="apple-touch-icon" href="icons/pwa/icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/pwa/icon-192x192.png">
     <title>Registration Form – EPAMNHS</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -668,5 +677,6 @@ footer {
         input.attr("type", input.attr("type") === "password" ? "text" : "password");
     });
 </script>
+<script src="js/pwa.js"></script>
 </body>
 </html>
