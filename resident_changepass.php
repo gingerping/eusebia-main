@@ -14,6 +14,15 @@ $current_date = $dt->format('l, F j, Y');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b2b5c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="EPAMNHS">
+  <link rel="apple-touch-icon" href="icons/pwa/icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/pwa/icon-192x192.png">
     <title>EPAMNHS | Change Password</title>
 
     <!-- Google Fonts & Icons -->
@@ -247,23 +256,20 @@ $current_date = $dt->format('l, F j, Y');
 <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
     <div class="container-fluid">
         <a class="navbar-brand" href="resident_homepage.php">
-            <i class="bi bi-mortarboard-fill me-2"></i> EPAMNHS Portal
+            <i class="bi bi-mortarboard-fill me-2"></i> EPAMHS Portal
         </a>
-        <div class="ms-auto d-flex align-items-center">
-            <a href="resident_homepage.php" class="home-icon me-3" data-bs-toggle="tooltip" title="Home">
-                <i class="fas fa-home fa-lg"></i>
-            </a>
-            <div class="dropdown">
-                <button class="btn dropdown-toggle-custom dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-user-circle me-2"></i> <?= htmlspecialchars($userdetails['surname'] . ', ' . $userdetails['firstname']); ?>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-custom dropdown-menu-end" aria-labelledby="userDropdown">
-                    <li><a class="dropdown-item dropdown-item-custom" href="resident_profile.php?id_resident=<?= $userdetails['id_resident'] ?>"><i class="fas fa-id-card"></i> My Profile</a></li>
-                    <li><a class="dropdown-item dropdown-item-custom" href="resident_changepass.php?id_resident=<?= $userdetails['id_resident'] ?>"><i class="fas fa-key"></i> Change Password</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item dropdown-item-custom" href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-                </ul>
-            </div>
+        <div class="dropdown ms-auto">
+            <button class="btn dropdown-toggle-custom dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-user-circle me-2"></i> <?= htmlspecialchars($userdetails['surname'] . ', ' . $userdetails['firstname']); ?>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-custom dropdown-menu-end" aria-labelledby="userDropdown">
+                <li><a class="dropdown-item dropdown-item-custom" href="resident_homepage.php"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a class="dropdown-item dropdown-item-custom active-page" href="my_submissions.php?id_resident=<?= $current_user_id ?>"><i class="fas fa-file-alt"></i> My Submissions</a></li>
+                <li><a class="dropdown-item dropdown-item-custom" href="resident_profile.php?id_resident=<?= $current_user_id ?>"><i class="fas fa-id-card"></i> My Profile</a></li>
+                <li><a class="dropdown-item dropdown-item-custom" href="resident_changepass.php?id_resident=<?= $current_user_id ?>"><i class="fas fa-key"></i> Change Password</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item dropdown-item-custom" href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
         </div>
     </div>
 </nav>
@@ -380,5 +386,6 @@ $current_date = $dt->format('l, F j, Y');
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(el => new bootstrap.Tooltip(el));
 </script>
+<script src="js/pwa.js"></script>
 </body>
 </html>

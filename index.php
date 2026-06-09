@@ -1,10 +1,12 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <title>EPAMNHS | Vision, Mission & Core Values</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b2b5c">
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -181,6 +183,13 @@
       max-width: 640px;
       margin: 0 auto;
     }
+                         .address {
+      font-family: 'Playfair Display', serif;
+      color: white;
+      text-shadow: 0 2px 8px rgba(0,0,0,.3);
+      margin: 0 auto;
+    }
+
 
     .school-sub {
       color: rgba(255,215,0,.85);
@@ -395,11 +404,13 @@
   <img class="hero-bg" id="heroBg" src="icons/eusebia.jpg" alt="School campus">
   <div class="hero-overlay"></div>
   <div class="hero-content">
+        <p class="school-sub">Department of Education</p>
     <div class="seal-ring">
       <img src="icons/Documents/eusebia.png" alt="School Seal">
     </div>
     <h1 class="school-name">Eusebia Paz Arroyo Memorial National High School</h1>
-    <p class="school-sub">Department of Education</p>
+        <h6 class="address">Buluang, Baao Camarines Sur</h6>
+    
     <div class="divider-gold"></div>
     <p class="hero-caption">Mission · Vision · Core Values</p>
   </div>
@@ -491,7 +502,7 @@
     <br><small><?= date('Y') ?> EPAMNHS. All rights reserved.</small>
   </div>
 </footer>
-
+<script src="js/pwa.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>

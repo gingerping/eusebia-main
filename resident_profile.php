@@ -244,23 +244,20 @@
 <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
     <div class="container-fluid">
         <a class="navbar-brand" href="resident_homepage.php">
-            <i class="bi bi-mortarboard-fill me-2"></i> EPAMNHS Portal
+            <i class="bi bi-mortarboard-fill me-2"></i> EPAMHS Portal
         </a>
-        <div class="ms-auto d-flex align-items-center">
-            <a href="resident_homepage.php" class="home-icon me-3" data-bs-toggle="tooltip" title="Home">
-                <i class="fas fa-home fa-lg"></i>
-            </a>
-            <div class="dropdown">
-                <button class="btn dropdown-toggle-custom dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-user-circle me-2"></i> <?= htmlspecialchars($userdetails['surname'] . ', ' . $userdetails['firstname']); ?>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-custom dropdown-menu-end" aria-labelledby="userDropdown">
-                    <li><a class="dropdown-item dropdown-item-custom" href="resident_profile.php?id_resident=<?= $userdetails['id_resident'] ?>"><i class="fas fa-id-card"></i> My Profile</a></li>
-                    <li><a class="dropdown-item dropdown-item-custom" href="resident_changepass.php?id_resident=<?= $userdetails['id_resident'] ?>"><i class="fas fa-key"></i> Change Password</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item dropdown-item-custom" href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-                </ul>
-            </div>
+        <div class="dropdown ms-auto">
+            <button class="btn dropdown-toggle-custom dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-user-circle me-2"></i> <?= htmlspecialchars($userdetails['surname'] . ', ' . $userdetails['firstname']); ?>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-custom dropdown-menu-end" aria-labelledby="userDropdown">
+                <li><a class="dropdown-item dropdown-item-custom" href="resident_homepage.php"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a class="dropdown-item dropdown-item-custom active-page" href="my_submissions.php?id_resident=<?= $current_user_id ?>"><i class="fas fa-file-alt"></i> My Submissions</a></li>
+                <li><a class="dropdown-item dropdown-item-custom" href="resident_profile.php?id_resident=<?= $current_user_id ?>"><i class="fas fa-id-card"></i> My Profile</a></li>
+                <li><a class="dropdown-item dropdown-item-custom" href="resident_changepass.php?id_resident=<?= $current_user_id ?>"><i class="fas fa-key"></i> Change Password</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item dropdown-item-custom" href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
         </div>
     </div>
 </nav>

@@ -11,7 +11,7 @@ class EUSEBIAClass {
     protected $con;
 
 
-    public function show_404()
+   public function show_404()
     {
         http_response_code(404);
         echo "Page is currently unavailable";
@@ -302,7 +302,7 @@ public function get_userdata() {
     //----------------------------------------- DOCUMENT PROCESSING FUNCTIONS -------------------------------------
     //-------------------------------------------------------------------------------------------------------------
 
- public function create_seven() {
+public function create_seven() {
     if(isset($_POST['create_seven'])) {
         $sy = $_POST['sy'] ?? '';
         $lrn = $_POST['lrn'] ?? '';
@@ -329,8 +329,12 @@ public function get_userdata() {
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
         // Add this to link the record to the logged-in user
-        $id_resident = $_POST['id_resident'] ?? ''; 
-
+        $id_resident = $_POST['id_resident'] ?? '';
+        $is_ip    = $_POST['is_ip']    ?? 'No';
+        $ip_group = ($is_ip === 'Yes') ? ($_POST['ip_group'] ?? '') : '';
+        $is_4ps   = $_POST['is_4ps']   ?? 'No';
+        $fourps_id = ($is_4ps === 'Yes') ? ($_POST['fourps_id'] ?? '') : '';
+ 
         // Handle multiple document uploads
         $uploadedPaths = [];
         if (!empty($_FILES['documents']['name'][0])) {
@@ -356,27 +360,48 @@ public function get_userdata() {
             }
         }
         $documents_json = !empty($uploadedPaths) ? json_encode($uploadedPaths) : null;
-
+ 
         $connection = $this->openConn();
+ 
+        // LRN duplicate check — only for new students (old/transferee re-use their existing LRN)
+        $student_type = trim($_POST['student_type'] ?? 'new');
+        if ($student_type === 'new') {
+            $lrn_tables = ['tbl_seven','tbl_eight','tbl_nine','tbl_ten','tbl_eleven','tbl_twelve'];
+            $lrn_taken = false;
+            foreach ($lrn_tables as $_lrn_tbl) {
+                $lrn_stmt = $connection->prepare("SELECT COUNT(*) FROM `{$_lrn_tbl}` WHERE `lrn` = ? AND (is_archived = 0 OR is_archived IS NULL)");
+                $lrn_stmt->execute([trim($lrn)]);
+                if ($lrn_stmt->fetchColumn() > 0) { $lrn_taken = true; break; }
+            }
+            if ($lrn_taken) {
+                $safe_lrn = urlencode(trim($lrn));
+                $ref = $_SERVER['HTTP_REFERER'] ?? 'javascript:history.back()';
+                $sep = (strpos($ref, '?') !== false) ? '&' : '?';
+                header('Location: ' . $ref . $sep . 'lrn_error=' . $safe_lrn);
+                exit();
+            }
+        }
         
         // I have added `id_resident` here so you know which user owns the enrollment
         $query = "INSERT INTO tbl_seven (
             `sy`, `lrn`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, 
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, 
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, 
-            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`,
+            `is_ip`, `ip_group`, `is_4ps`, `fourps_id`
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         
         $stmt = $connection->prepare($query);
         
-        // Ensure the count of elements in this array matches the number of '?' (26 total)
+        // Ensure the count of elements in this array matches the number of '?' (30 total)
         $stmt->execute([
             $sy, $lrn, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email, 
             $current_address, $perm_address, $ffname, $flname, $fmi, 
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc, 
-            $lsa, $lysc, $school_id, $id_resident, $documents_json
+            $lsa, $lysc, $school_id, $id_resident, $documents_json,
+            $is_ip, $ip_group, $is_4ps, $fourps_id
         ]);
-
+ 
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
 <script>
     var script = document.createElement('script');
@@ -399,7 +424,6 @@ public function get_userdata() {
         exit(); 
     }
 }
-
 
 public function get_single_seven($id_resident){
 
@@ -436,7 +460,165 @@ public function delete_seven(){
         header("Refresh:0");
     }
 }
-
+private function sendMail($toEmail, $toName, $subject, $htmlBody, $altBody = '') {
+    require_once __DIR__ . '/../phpmailer/Exception.php';
+    require_once __DIR__ . '/../phpmailer/PHPMailer.php';
+    require_once __DIR__ . '/../phpmailer/SMTP.php';
+ 
+    $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+    try {
+        $mail->isSMTP();
+        $mail->Host       = 'smtp.gmail.com';
+        $mail->SMTPAuth   = true;
+        $mail->Username   = 'eusebiahighschool@gmail.com';
+        $mail->Password   = 'ilfb ajcy gaiy iybg';
+        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port       = 587;
+ 
+        $mail->setFrom('eusebiahighschool@gmail.com', 'Eusebia High School');
+        $mail->addAddress($toEmail, $toName ?: 'Student');
+ 
+        $mail->isHTML(true);
+        $mail->Subject = $subject;
+        $mail->Body    = $htmlBody;
+        $mail->AltBody = $altBody ?: strip_tags($htmlBody);
+ 
+        $mail->send();
+        return ['success' => true];
+    } catch (Exception $e) {
+        return ['success' => false, 'error' => $mail->ErrorInfo];
+    }
+}
+ 
+public function approve_seven() {
+    if (!isset($_POST['approve_seven'])) return;
+ 
+    $id_seven = $_POST['id_seven'] ?? null;
+    if (!$id_seven) {
+        $_SESSION['swal'] = ['icon' => 'error', 'title' => 'Invalid record.'];
+        header('Location: ' . $_SERVER['PHP_SELF']); exit;
+    }
+ 
+    $connection = $this->openConn();
+ 
+    try { $connection->exec("ALTER TABLE tbl_seven ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); }
+    catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE tbl_seven ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); }
+    catch (PDOException $e) {}
+ 
+    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_seven WHERE id_seven = ?");
+    $fetch->execute([$id_seven]);
+    $student = $fetch->fetch();
+ 
+    $update = $connection->prepare("UPDATE tbl_seven SET enrollment_status = 'Approved', reject_reason = NULL WHERE id_seven = ?");
+    $update->execute([$id_seven]);
+    $this->closeConn();
+ 
+    $email = $student['email'] ?? '';
+    $name  = trim(($student['fname'] ?? '') . ' ' . ($student['lname'] ?? ''));
+ 
+    if (!empty($email)) {
+        $html = "
+        <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+            <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                <p style='color:#a8c4e0;margin:4px 0 0;'>Enrollment Notification</p>
+            </div>
+            <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                <h3 style='color:#0b2b5c;'>&#127881; Enrollment Approved!</h3>
+                <p>Dear <strong>" . htmlspecialchars($name) . "</strong>,</p>
+                <p>We are pleased to inform you that your <strong>Grade 7 enrollment</strong> has been
+                   <span style='color:#28a745;font-weight:bold;'>APPROVED</span>.</p>
+                <p>Please visit the school to complete your enrollment requirements and for further instructions.</p>
+                <br>
+                <p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+            </div>
+        </div>";
+ 
+        $alt = "Dear $name,\n\nYour Grade 7 enrollment has been APPROVED. Eusebia High School";
+ 
+        $result = $this->sendMail($email, $name, 'Grade 7 Enrollment Approved  Eusebia High School', $html, $alt);
+        if ($result['success']) {
+            $_SESSION['swal'] = ['icon' => 'success', 'title' => 'Approved!', 'text' => 'Enrollment approved and email sent to ' . $email];
+        } else {
+            $_SESSION['swal'] = ['icon' => 'warning', 'title' => 'Approved (Email Failed)', 'text' => 'Status updated but email could not be sent. ' . ($result['error'] ?? '')];
+        }
+    } else {
+        $_SESSION['swal'] = ['icon' => 'success', 'title' => 'Approved!', 'text' => 'Enrollment approved. No email address on record.'];
+    }
+ 
+    header('Location: ' . $_SERVER['PHP_SELF']); exit;
+}
+ 
+public function reject_seven() {
+    if (!isset($_POST['reject_seven'])) return;
+ 
+    $id_seven      = $_POST['id_seven'] ?? null;
+    $reject_reason = trim($_POST['reject_reason'] ?? '');
+ 
+    if (!$id_seven) {
+        $_SESSION['swal'] = ['icon' => 'error', 'title' => 'Invalid record.'];
+        header('Location: ' . $_SERVER['PHP_SELF']); exit;
+    }
+ 
+    $connection = $this->openConn();
+ 
+    try { $connection->exec("ALTER TABLE tbl_seven ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); }
+    catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE tbl_seven ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); }
+    catch (PDOException $e) {}
+ 
+    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_seven WHERE id_seven = ?");
+    $fetch->execute([$id_seven]);
+    $student = $fetch->fetch();
+ 
+    $update = $connection->prepare("UPDATE tbl_seven SET enrollment_status = 'Rejected', reject_reason = ? WHERE id_seven = ?");
+    $update->execute([$reject_reason, $id_seven]);
+    $this->closeConn();
+ 
+    $email = $student['email'] ?? '';
+    $name  = trim(($student['fname'] ?? '') . ' ' . ($student['lname'] ?? ''));
+ 
+    if (!empty($email)) {
+        $reasonHtml = !empty($reject_reason)
+            ? "<p><strong>Reason:</strong> " . htmlspecialchars($reject_reason) . "</p>"
+            : "";
+        $reasonAlt = !empty($reject_reason) ? "\nReason: $reject_reason\n" : "";
+ 
+        $html = "
+        <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+            <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                <p style='color:#a8c4e0;margin:4px 0 0;'>Enrollment Notification</p>
+            </div>
+            <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                <h3 style='color:#c0392b;'>Enrollment Not Approved</h3>
+                <p>Dear <strong>" . htmlspecialchars($name) . "</strong>,</p>
+                <p>We regret to inform you that your <strong>Grade 7 enrollment</strong> has been
+                   <span style='color:#c0392b;font-weight:bold;'>REJECTED</span>.</p>
+                {$reasonHtml}
+                <p>If you have questions or would like to appeal, please visit the school during office hours.</p>
+                <br>
+                <p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+            </div>
+        </div>";
+ 
+        $alt = "Dear $name,\n\nWe regret to inform you that your Grade 7 enrollment has been REJECTED.{$reasonAlt}\nPlease visit the school if you have questions.\n\n– Eusebia High School";
+ 
+        $result = $this->sendMail($email, $name, 'Grade 7 Enrollment Update – Eusebia High School', $html, $alt);
+        if ($result['success']) {
+            $_SESSION['swal'] = ['icon' => 'info', 'title' => 'Rejected', 'text' => 'Enrollment rejected and email sent to ' . $email];
+        } else {
+            $_SESSION['swal'] = ['icon' => 'warning', 'title' => 'Rejected (Email Failed)', 'text' => 'Status updated but email could not be sent. ' . ($result['error'] ?? '')];
+        }
+    } else {
+        $_SESSION['swal'] = ['icon' => 'info', 'title' => 'Rejected', 'text' => 'Enrollment rejected. No email address on record.'];
+    }
+ 
+    header('Location: ' . $_SERVER['PHP_SELF']); exit;
+}
+ 
+ 
 public function view_archived_seven(){
     $connection = $this->openConn();
     $stmt = $connection->prepare("SELECT *, 'Grade 7' AS grade_label, id_seven AS record_id, 'seven' AS grade_table FROM tbl_seven WHERE is_archived = 1");
@@ -454,7 +636,6 @@ public function restore_seven(){
         exit();
     }
 }
-
 public function update_seven() {
     if (isset($_POST['update_seven'])) {
         $id_seven = $_GET['id_seven']; // Getting ID from URL
@@ -505,7 +686,7 @@ public function update_seven() {
     }
 }
 
- public function create_eight() {
+public function create_eight() {
     if(isset($_POST['create_eight'])) {
         $sy = $_POST['sy'] ?? '';
         $lrn = $_POST['lrn'] ?? '';
@@ -532,8 +713,14 @@ public function update_seven() {
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
         // Add this to link the record to the logged-in user
-        $id_resident = $_POST['id_resident'] ?? ''; 
-
+        $id_resident = $_POST['id_resident'] ?? '';
+        $is_ip    = $_POST['is_ip']    ?? 'No';
+        $ip_group = ($is_ip === 'Yes') ? ($_POST['ip_group'] ?? '') : '';
+        $is_4ps   = $_POST['is_4ps']   ?? 'No';
+        $fourps_id = ($is_4ps === 'Yes') ? ($_POST['fourps_id'] ?? '') : '';
+        $prev_grade_table = trim($_POST['prev_grade_table'] ?? '');
+        $prev_grade_id    = (int)($_POST['prev_grade_id']    ?? 0); 
+ 
         // Handle multiple document uploads
         $uploadedPaths = [];
         if (!empty($_FILES['documents']['name'][0])) {
@@ -559,27 +746,47 @@ public function update_seven() {
             }
         }
         $documents_json = !empty($uploadedPaths) ? json_encode($uploadedPaths) : null;
-
+ 
         $connection = $this->openConn();
+ 
+        // LRN duplicate check — only for new students (old/transferee re-use their existing LRN)
+        $student_type = trim($_POST['student_type'] ?? 'new');
+        if ($student_type === 'new') {
+            $lrn_tables = ['tbl_seven','tbl_eight','tbl_nine','tbl_ten','tbl_eleven','tbl_twelve'];
+            $lrn_taken = false;
+            foreach ($lrn_tables as $_lrn_tbl) {
+                $lrn_stmt = $connection->prepare("SELECT COUNT(*) FROM `{$_lrn_tbl}` WHERE `lrn` = ? AND (is_archived = 0 OR is_archived IS NULL)");
+                $lrn_stmt->execute([trim($lrn)]);
+                if ($lrn_stmt->fetchColumn() > 0) { $lrn_taken = true; break; }
+            }
+            if ($lrn_taken) {
+                $safe_lrn = urlencode(trim($lrn));
+                $ref = $_SERVER['HTTP_REFERER'] ?? 'javascript:history.back()';
+                $sep = (strpos($ref, '?') !== false) ? '&' : '?';
+                header('Location: ' . $ref . $sep . 'lrn_error=' . $safe_lrn);
+                exit();
+            }
+        }
         
+        // I have added `id_resident` here so you know which user owns the enrollment
         // I have added `id_resident` here so you know which user owns the enrollment
         $query = "INSERT INTO tbl_eight (
             `sy`, `lrn`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, 
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, 
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, 
-            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         
         $stmt = $connection->prepare($query);
         
-        // Ensure the count of elements in this array matches the number of '?' (26 total)
+        // Exact 28 element balance mapping
         $stmt->execute([
             $sy, $lrn, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email, 
             $current_address, $perm_address, $ffname, $flname, $fmi, 
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc, 
-            $lsa, $lysc, $school_id, $id_resident, $documents_json
+            $lsa, $lysc, $school_id, $id_resident, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
         ]);
-
+ 
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
 <script>
     var script = document.createElement('script');
@@ -635,7 +842,128 @@ public function delete_eight(){
         header("Refresh:0");
     }
 }
+public function approve_eight() {
+    if (!isset($_POST['approve_eight'])) return;
+    $id_eight = $_POST['id_eight'] ?? null;
+    if (!$id_eight) {
+        $_SESSION['swal'] = ['icon'=>'error','title'=>'Invalid record.'];
+        header('Location: '.$_SERVER['PHP_SELF']); exit;
+    }
+    $connection = $this->openConn();
+    try { $connection->exec("ALTER TABLE tbl_eight ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE tbl_eight ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
+    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_eight WHERE id_eight = ?");
+    $fetch->execute([$id_eight]);
+    $student = $fetch->fetch();
+    $update = $connection->prepare("UPDATE tbl_eight SET enrollment_status = 'Approved', reject_reason = NULL WHERE id_eight = ?");
+    $update->execute([$id_eight]);
 
+    // Permanently DELETE the previous grade record when Grade 8 enrollment is approved
+    $prev_tbl = null;
+    $prev_pk  = 0;
+    $prev_stmt = $connection->prepare("SELECT prev_grade_table, prev_grade_id FROM `tbl_eight` WHERE `id_eight` = ?");
+    $prev_stmt->execute([$id_eight]);
+    $prev_row = $prev_stmt->fetch(PDO::FETCH_ASSOC);
+    if ($prev_row) {
+        $prev_tbl = $prev_row['prev_grade_table'];
+        $prev_pk  = (int)$prev_row['prev_grade_id'];
+    }
+    $allowed_tables = ['tbl_seven','tbl_eight','tbl_nine','tbl_ten','tbl_eleven','tbl_twelve'];
+    if ($prev_tbl && $prev_pk > 0 && in_array($prev_tbl, $allowed_tables)) {
+        $pk_map = [
+            'tbl_seven'  => 'id_seven',
+            'tbl_eight'  => 'id_eight',
+            'tbl_nine'   => 'id_nine',
+            'tbl_ten'    => 'id_ten',
+            'tbl_eleven' => 'id_eleven',
+            'tbl_twelve' => 'id_twelve',
+        ];
+        $prev_pk_col = $pk_map[$prev_tbl];
+        // PERMANENTLY DELETE the previous grade record — NOT archived
+        $delete_stmt = $connection->prepare(
+            "DELETE FROM `{$prev_tbl}` WHERE `{$prev_pk_col}` = ?"
+        );
+        $delete_stmt->execute([$prev_pk]);
+    }
+    $this->closeConn();
+    $email = $student['email'] ?? '';
+    $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
+    if (!empty($email)) {
+        $html = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+            <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                <p style='color:#a8c4e0;margin:4px 0 0;'>Enrollment Notification</p>
+            </div>
+            <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                <h3 style='color:#0b2b5c;'>&#127881; Enrollment Approved!</h3>
+                <p>Dear <strong>".htmlspecialchars($name)."</strong>,</p>
+                <p>We are pleased to inform you that your <strong>Grade 8 enrollment</strong> has been
+                   <span style='color:#28a745;font-weight:bold;'>APPROVED</span>.</p>
+                <p>Please visit the school to complete your enrollment requirements and for further instructions.</p>
+                <br><p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+            </div></div>";
+        $alt = "Dear $name,\n\nYour Grade 8 enrollment has been APPROVED.\nPlease visit the school to complete your enrollment requirements.\n\n– Eusebia High School";
+        $result = $this->sendMail($email, $name, 'Grade 8 Enrollment Approved  Eusebia High School', $html, $alt);
+        if ($result['success']) {
+            $_SESSION['swal'] = ['icon'=>'success','title'=>'Approved!','text'=>'Enrollment approved and email sent to '.$email];
+        } else {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'Approved (Email Failed)','text'=>'Status updated but email could not be sent. '.($result['error'] ?? '')];
+        }
+    } else {
+        $_SESSION['swal'] = ['icon'=>'success','title'=>'Approved!','text'=>'Enrollment approved. No email address on record.'];
+    }
+    header('Location: '.$_SERVER['PHP_SELF']); exit;
+}
+ 
+public function reject_eight() {
+    if (!isset($_POST['reject_eight'])) return;
+    $id_eight      = $_POST['id_eight'] ?? null;
+    $reject_reason = trim($_POST['reject_reason'] ?? '');
+    if (!$id_eight) {
+        $_SESSION['swal'] = ['icon'=>'error','title'=>'Invalid record.'];
+        header('Location: '.$_SERVER['PHP_SELF']); exit;
+    }
+    $connection = $this->openConn();
+    try { $connection->exec("ALTER TABLE tbl_eight ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE tbl_eight ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
+    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_eight WHERE id_eight = ?");
+    $fetch->execute([$id_eight]);
+    $student = $fetch->fetch();
+    $update = $connection->prepare("UPDATE tbl_eight SET enrollment_status = 'Rejected', reject_reason = ? WHERE id_eight = ?");
+    $update->execute([$reject_reason, $id_eight]);
+    $this->closeConn();
+    $email = $student['email'] ?? '';
+    $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
+    if (!empty($email)) {
+        $reasonHtml = !empty($reject_reason) ? "<p><strong>Reason:</strong> ".htmlspecialchars($reject_reason)."</p>" : "";
+        $reasonAlt  = !empty($reject_reason) ? "\nReason: $reject_reason\n" : "";
+        $html = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+            <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                <p style='color:#a8c4e0;margin:4px 0 0;'>Enrollment Notification</p>
+            </div>
+            <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                <h3 style='color:#c0392b;'>Enrollment Not Approved</h3>
+                <p>Dear <strong>".htmlspecialchars($name)."</strong>,</p>
+                <p>We regret to inform you that your <strong>Grade 8 enrollment</strong> has been
+                   <span style='color:#c0392b;font-weight:bold;'>REJECTED</span>.</p>
+                {$reasonHtml}
+                <p>If you have questions or would like to appeal, please visit the school during office hours.</p>
+                <br><p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+            </div></div>";
+        $alt = "Dear $name,\n\nWe regret to inform you that your Grade 8 enrollment has been REJECTED.{$reasonAlt}\nPlease visit the school if you have questions.\n\n– Eusebia High School";
+        $result = $this->sendMail($email, $name, 'Grade 8 Enrollment Update  Eusebia High School', $html, $alt);
+        if ($result['success']) {
+            $_SESSION['swal'] = ['icon'=>'info','title'=>'Rejected','text'=>'Enrollment rejected and email sent to '.$email];
+        } else {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'Rejected (Email Failed)','text'=>'Status updated but email could not be sent. '.($result['error'] ?? '')];
+        }
+    } else {
+        $_SESSION['swal'] = ['icon'=>'info','title'=>'Rejected','text'=>'Enrollment rejected. No email address on record.'];
+    }
+    header('Location: '.$_SERVER['PHP_SELF']); exit;
+}
+ 
 public function view_archived_eight(){
     $connection = $this->openConn();
     $stmt = $connection->prepare("SELECT *, 'Grade 8' AS grade_label, id_eight AS record_id, 'eight' AS grade_table FROM tbl_eight WHERE is_archived = 1");
@@ -731,6 +1059,12 @@ public function create_nine() {
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
         $id_resident = $_POST['id_resident'] ?? '';
+        $prev_grade_table = trim($_POST['prev_grade_table'] ?? '');
+        $prev_grade_id    = (int)($_POST['prev_grade_id']    ?? 0);
+        $is_ip    = $_POST['is_ip']    ?? 'No';
+        $ip_group = ($is_ip === 'Yes') ? ($_POST['ip_group'] ?? '') : '';
+        $is_4ps   = $_POST['is_4ps']   ?? 'No';
+        $fourps_id = ($is_4ps === 'Yes') ? ($_POST['fourps_id'] ?? '') : '';
 
         // Handle multiple document/picture uploads
         $uploadedPaths = [];
@@ -762,19 +1096,39 @@ public function create_nine() {
 
         $connection = $this->openConn();
 
+        // LRN duplicate check — only for new students (old/transferee re-use their existing LRN)
+        $student_type = trim($_POST['student_type'] ?? 'new');
+        if ($student_type === 'new') {
+            $lrn_tables = ['tbl_seven','tbl_eight','tbl_nine','tbl_ten','tbl_eleven','tbl_twelve'];
+            $lrn_taken = false;
+            foreach ($lrn_tables as $_lrn_tbl) {
+                $lrn_stmt = $connection->prepare("SELECT COUNT(*) FROM `{$_lrn_tbl}` WHERE `lrn` = ? AND (is_archived = 0 OR is_archived IS NULL)");
+                $lrn_stmt->execute([trim($lrn)]);
+                if ($lrn_stmt->fetchColumn() > 0) { $lrn_taken = true; break; }
+            }
+            if ($lrn_taken) {
+                $safe_lrn = urlencode(trim($lrn));
+                $ref = $_SERVER['HTTP_REFERER'] ?? 'javascript:history.back()';
+                $sep = (strpos($ref, '?') !== false) ? '&' : '?';
+                header('Location: ' . $ref . $sep . 'lrn_error=' . $safe_lrn);
+                exit();
+            }
+        }
+
+        // FIXED: Added 2 additional '?' tokens to hit exactly 29 parameters
         $query = "INSERT INTO tbl_nine (
             `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`,
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`,
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`,
-            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $stmt = $connection->prepare($query);
         $stmt->execute([
             $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email,
             $current_address, $perm_address, $ffname, $flname, $fmi,
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc,
-            $lsa, $lysc, $school_id, $id_resident, $documents_json
+            $lsa, $lysc, $school_id, $id_resident, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
         ]);
 
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
@@ -799,7 +1153,6 @@ public function create_nine() {
         exit();
     }
 }
-
     public function get_single_nine($id_resident){
         // Removed the $_GET overwrite so it uses the passed ID correctly
         $connection = $this->openConn();
@@ -827,7 +1180,127 @@ public function create_nine() {
             exit();
         }
     }
+public function approve_nine() {
+    if (!isset($_POST['approve_nine'])) return;
+    $id_nine = $_POST['id_nine'] ?? null;
+    if (!$id_nine) {
+        $_SESSION['swal'] = ['icon'=>'error','title'=>'Invalid record.'];
+        header('Location: '.$_SERVER['PHP_SELF']); exit;
+    }
+    $connection = $this->openConn();
+    try { $connection->exec("ALTER TABLE tbl_nine ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE tbl_nine ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
+    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_nine WHERE id_nine = ?");
+    $fetch->execute([$id_nine]);
+    $student = $fetch->fetch();
+    $update = $connection->prepare("UPDATE tbl_nine SET enrollment_status = 'Approved', reject_reason = NULL WHERE id_nine = ?");
+    $update->execute([$id_nine]);
 
+    // Auto-archive the previous grade record when this enrollment is approved
+    $prev_tbl = null;
+    $prev_pk  = 0;
+    $prev_stmt = $connection->prepare("SELECT prev_grade_table, prev_grade_id FROM `tbl_nine` WHERE `id_nine` = ?");
+    $prev_stmt->execute([$id_nine]);
+    $prev_row = $prev_stmt->fetch(PDO::FETCH_ASSOC);
+    if ($prev_row) {
+        $prev_tbl = $prev_row['prev_grade_table'];
+        $prev_pk  = (int)$prev_row['prev_grade_id'];
+    }
+    $allowed_tables = ['tbl_seven','tbl_eight','tbl_nine','tbl_ten','tbl_eleven','tbl_twelve'];
+    if ($prev_tbl && $prev_pk > 0 && in_array($prev_tbl, $allowed_tables)) {
+        $pk_map = [
+            'tbl_seven'  => 'id_seven',
+            'tbl_eight'  => 'id_eight',
+            'tbl_nine'   => 'id_nine',
+            'tbl_ten'    => 'id_ten',
+            'tbl_eleven' => 'id_eleven',
+            'tbl_twelve' => 'id_twelve',
+        ];
+        $prev_pk_col = $pk_map[$prev_tbl];
+        $archive_stmt = $connection->prepare(
+            "UPDATE `{$prev_tbl}` SET is_archived = 1, archived_at = NOW() WHERE `{$prev_pk_col}` = ?"
+        );
+        $archive_stmt->execute([$prev_pk]);
+    }
+
+    $this->closeConn();
+    $email = $student['email'] ?? '';
+    $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
+    if (!empty($email)) {
+        $html = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+            <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                <p style='color:#a8c4e0;margin:4px 0 0;'>Enrollment Notification</p>
+            </div>
+            <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                <h3 style='color:#0b2b5c;'>&#127881; Enrollment Approved!</h3>
+                <p>Dear <strong>".htmlspecialchars($name)."</strong>,</p>
+                <p>We are pleased to inform you that your <strong>Grade 9 enrollment</strong> has been
+                   <span style='color:#28a745;font-weight:bold;'>APPROVED</span>.</p>
+                <p>Please visit the school to complete your enrollment requirements and for further instructions.</p>
+                <br><p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+            </div></div>";
+        $alt = "Dear $name,\n\nYour Grade 9 enrollment has been APPROVED.\nPlease visit the school to complete your enrollment requirements.\n\n– Eusebia High School";
+        $result = $this->sendMail($email, $name, 'Grade 9 Enrollment Approved  Eusebia High School', $html, $alt);
+        if ($result['success']) {
+            $_SESSION['swal'] = ['icon'=>'success','title'=>'Approved!','text'=>'Enrollment approved and email sent to '.$email];
+        } else {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'Approved (Email Failed)','text'=>'Status updated but email could not be sent. '.($result['error'] ?? '')];
+        }
+    } else {
+        $_SESSION['swal'] = ['icon'=>'success','title'=>'Approved!','text'=>'Enrollment approved. No email address on record.'];
+    }
+    header('Location: '.$_SERVER['PHP_SELF']); exit;
+}
+ 
+public function reject_nine() {
+    if (!isset($_POST['reject_nine'])) return;
+    $id_nine       = $_POST['id_nine'] ?? null;
+    $reject_reason = trim($_POST['reject_reason'] ?? '');
+    if (!$id_nine) {
+        $_SESSION['swal'] = ['icon'=>'error','title'=>'Invalid record.'];
+        header('Location: '.$_SERVER['PHP_SELF']); exit;
+    }
+    $connection = $this->openConn();
+    try { $connection->exec("ALTER TABLE tbl_nine ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE tbl_nine ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
+    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_nine WHERE id_nine = ?");
+    $fetch->execute([$id_nine]);
+    $student = $fetch->fetch();
+    $update = $connection->prepare("UPDATE tbl_nine SET enrollment_status = 'Rejected', reject_reason = ? WHERE id_nine = ?");
+    $update->execute([$reject_reason, $id_nine]);
+    $this->closeConn();
+    $email = $student['email'] ?? '';
+    $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
+    if (!empty($email)) {
+        $reasonHtml = !empty($reject_reason) ? "<p><strong>Reason:</strong> ".htmlspecialchars($reject_reason)."</p>" : "";
+        $reasonAlt  = !empty($reject_reason) ? "\nReason: $reject_reason\n" : "";
+        $html = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+            <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                <p style='color:#a8c4e0;margin:4px 0 0;'>Enrollment Notification</p>
+            </div>
+            <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                <h3 style='color:#c0392b;'>Enrollment Not Approved</h3>
+                <p>Dear <strong>".htmlspecialchars($name)."</strong>,</p>
+                <p>We regret to inform you that your <strong>Grade 9 enrollment</strong> has been
+                   <span style='color:#c0392b;font-weight:bold;'>REJECTED</span>.</p>
+                {$reasonHtml}
+                <p>If you have questions or would like to appeal, please visit the school during office hours.</p>
+                <br><p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+            </div></div>";
+        $alt = "Dear $name,\n\nWe regret to inform you that your Grade 9 enrollment has been REJECTED.{$reasonAlt}\nPlease visit the school if you have questions.\n\n– Eusebia High School";
+        $result = $this->sendMail($email, $name, 'Grade 9 Enrollment Update  Eusebia High School', $html, $alt);
+        if ($result['success']) {
+            $_SESSION['swal'] = ['icon'=>'info','title'=>'Rejected','text'=>'Enrollment rejected and email sent to '.$email];
+        } else {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'Rejected (Email Failed)','text'=>'Status updated but email could not be sent. '.($result['error'] ?? '')];
+        }
+    } else {
+        $_SESSION['swal'] = ['icon'=>'info','title'=>'Rejected','text'=>'Enrollment rejected. No email address on record.'];
+    }
+    header('Location: '.$_SERVER['PHP_SELF']); exit;
+}
     public function view_archived_nine(){
         $connection = $this->openConn();
         $stmt = $connection->prepare("SELECT *, 'Grade 9' AS grade_label, id_nine AS record_id, 'nine' AS grade_table FROM tbl_nine WHERE is_archived = 1");
@@ -899,7 +1372,7 @@ public function create_nine() {
         }
     }
 
-    public function create_ten() {
+   public function create_ten() {
     if(isset($_POST['create_ten'])) {
         $sy = $_POST['sy'] ?? '';
         $lrn = $_POST['lrn'] ?? '';
@@ -927,6 +1400,12 @@ public function create_nine() {
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
         $id_resident = $_POST['id_resident'] ?? '';
+        $prev_grade_table = trim($_POST['prev_grade_table'] ?? '');
+        $prev_grade_id    = (int)($_POST['prev_grade_id']    ?? 0);
+        $is_ip    = $_POST['is_ip']    ?? 'No';
+        $ip_group = ($is_ip === 'Yes') ? ($_POST['ip_group'] ?? '') : '';
+        $is_4ps   = $_POST['is_4ps']   ?? 'No';
+        $fourps_id = ($is_4ps === 'Yes') ? ($_POST['fourps_id'] ?? '') : '';
 
         // Handle multiple document/picture uploads
         $uploadedPaths = [];
@@ -958,19 +1437,38 @@ public function create_nine() {
 
         $connection = $this->openConn();
 
+        // LRN duplicate check — only for new students (old/transferee re-use their existing LRN)
+        $student_type = trim($_POST['student_type'] ?? 'new');
+        if ($student_type === 'new') {
+            $lrn_tables = ['tbl_seven','tbl_eight','tbl_nine','tbl_ten','tbl_eleven','tbl_twelve'];
+            $lrn_taken = false;
+            foreach ($lrn_tables as $_lrn_tbl) {
+                $lrn_stmt = $connection->prepare("SELECT COUNT(*) FROM `{$_lrn_tbl}` WHERE `lrn` = ? AND (is_archived = 0 OR is_archived IS NULL)");
+                $lrn_stmt->execute([trim($lrn)]);
+                if ($lrn_stmt->fetchColumn() > 0) { $lrn_taken = true; break; }
+            }
+            if ($lrn_taken) {
+                $safe_lrn = urlencode(trim($lrn));
+                $ref = $_SERVER['HTTP_REFERER'] ?? 'javascript:history.back()';
+                $sep = (strpos($ref, '?') !== false) ? '&' : '?';
+                header('Location: ' . $ref . $sep . 'lrn_error=' . $safe_lrn);
+                exit();
+            }
+        }
+
         $query = "INSERT INTO tbl_ten (
             `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`,
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`,
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`,
-            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $stmt = $connection->prepare($query);
         $stmt->execute([
             $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email,
             $current_address, $perm_address, $ffname, $flname, $fmi,
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc,
-            $lsa, $lysc, $school_id, $id_resident, $documents_json
+            $lsa, $lysc, $school_id, $id_resident, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
         ]);
 
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
@@ -1023,7 +1521,127 @@ public function create_nine() {
             exit();
         }
     }
+public function approve_ten() {
+    if (!isset($_POST['approve_ten'])) return;
+    $id_ten = $_POST['id_ten'] ?? null;
+    if (!$id_ten) {
+        $_SESSION['swal'] = ['icon'=>'error','title'=>'Invalid record.'];
+        header('Location: '.$_SERVER['PHP_SELF']); exit;
+    }
+    $connection = $this->openConn();
+    try { $connection->exec("ALTER TABLE tbl_ten ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE tbl_ten ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
+    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_ten WHERE id_ten = ?");
+    $fetch->execute([$id_ten]);
+    $student = $fetch->fetch();
+    $update = $connection->prepare("UPDATE tbl_ten SET enrollment_status = 'Approved', reject_reason = NULL WHERE id_ten = ?");
+    $update->execute([$id_ten]);
 
+    // Auto-archive the previous grade record when this enrollment is approved
+    $prev_tbl = null;
+    $prev_pk  = 0;
+    $prev_stmt = $connection->prepare("SELECT prev_grade_table, prev_grade_id FROM `tbl_ten` WHERE `id_ten` = ?");
+    $prev_stmt->execute([$id_ten]);
+    $prev_row = $prev_stmt->fetch(PDO::FETCH_ASSOC);
+    if ($prev_row) {
+        $prev_tbl = $prev_row['prev_grade_table'];
+        $prev_pk  = (int)$prev_row['prev_grade_id'];
+    }
+    $allowed_tables = ['tbl_seven','tbl_eight','tbl_nine','tbl_ten','tbl_eleven','tbl_twelve'];
+    if ($prev_tbl && $prev_pk > 0 && in_array($prev_tbl, $allowed_tables)) {
+        $pk_map = [
+            'tbl_seven'  => 'id_seven',
+            'tbl_eight'  => 'id_eight',
+            'tbl_nine'   => 'id_nine',
+            'tbl_ten'    => 'id_ten',
+            'tbl_eleven' => 'id_eleven',
+            'tbl_twelve' => 'id_twelve',
+        ];
+        $prev_pk_col = $pk_map[$prev_tbl];
+        $archive_stmt = $connection->prepare(
+            "UPDATE `{$prev_tbl}` SET is_archived = 1, archived_at = NOW() WHERE `{$prev_pk_col}` = ?"
+        );
+        $archive_stmt->execute([$prev_pk]);
+    }
+
+    $this->closeConn();
+    $email = $student['email'] ?? '';
+    $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
+    if (!empty($email)) {
+        $html = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+            <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                <p style='color:#a8c4e0;margin:4px 0 0;'>Enrollment Notification</p>
+            </div>
+            <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                <h3 style='color:#0b2b5c;'>&#127881; Enrollment Approved!</h3>
+                <p>Dear <strong>".htmlspecialchars($name)."</strong>,</p>
+                <p>We are pleased to inform you that your <strong>Grade 10 enrollment</strong> has been
+                   <span style='color:#28a745;font-weight:bold;'>APPROVED</span>.</p>
+                <p>Please visit the school to complete your enrollment requirements and for further instructions.</p>
+                <br><p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+            </div></div>";
+        $alt = "Dear $name,\n\nYour Grade 10 enrollment has been APPROVED.\nPlease visit the school to complete your enrollment requirements.\n\n– Eusebia High School";
+        $result = $this->sendMail($email, $name, 'Grade 10 Enrollment Approved  Eusebia High School', $html, $alt);
+        if ($result['success']) {
+            $_SESSION['swal'] = ['icon'=>'success','title'=>'Approved!','text'=>'Enrollment approved and email sent to '.$email];
+        } else {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'Approved (Email Failed)','text'=>'Status updated but email could not be sent. '.($result['error'] ?? '')];
+        }
+    } else {
+        $_SESSION['swal'] = ['icon'=>'success','title'=>'Approved!','text'=>'Enrollment approved. No email address on record.'];
+    }
+    header('Location: '.$_SERVER['PHP_SELF']); exit;
+}
+ 
+public function reject_ten() {
+    if (!isset($_POST['reject_ten'])) return;
+    $id_ten        = $_POST['id_ten'] ?? null;
+    $reject_reason = trim($_POST['reject_reason'] ?? '');
+    if (!$id_ten) {
+        $_SESSION['swal'] = ['icon'=>'error','title'=>'Invalid record.'];
+        header('Location: '.$_SERVER['PHP_SELF']); exit;
+    }
+    $connection = $this->openConn();
+    try { $connection->exec("ALTER TABLE tbl_ten ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE tbl_ten ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
+    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_ten WHERE id_ten = ?");
+    $fetch->execute([$id_ten]);
+    $student = $fetch->fetch();
+    $update = $connection->prepare("UPDATE tbl_ten SET enrollment_status = 'Rejected', reject_reason = ? WHERE id_ten = ?");
+    $update->execute([$reject_reason, $id_ten]);
+    $this->closeConn();
+    $email = $student['email'] ?? '';
+    $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
+    if (!empty($email)) {
+        $reasonHtml = !empty($reject_reason) ? "<p><strong>Reason:</strong> ".htmlspecialchars($reject_reason)."</p>" : "";
+        $reasonAlt  = !empty($reject_reason) ? "\nReason: $reject_reason\n" : "";
+        $html = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+            <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                <p style='color:#a8c4e0;margin:4px 0 0;'>Enrollment Notification</p>
+            </div>
+            <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                <h3 style='color:#c0392b;'>Enrollment Not Approved</h3>
+                <p>Dear <strong>".htmlspecialchars($name)."</strong>,</p>
+                <p>We regret to inform you that your <strong>Grade 10 enrollment</strong> has been
+                   <span style='color:#c0392b;font-weight:bold;'>REJECTED</span>.</p>
+                {$reasonHtml}
+                <p>If you have questions or would like to appeal, please visit the school during office hours.</p>
+                <br><p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+            </div></div>";
+        $alt = "Dear $name,\n\nWe regret to inform you that your Grade 10 enrollment has been REJECTED.{$reasonAlt}\nPlease visit the school if you have questions.\n\n– Eusebia High School";
+        $result = $this->sendMail($email, $name, 'Grade 10 Enrollment Update  Eusebia High School', $html, $alt);
+        if ($result['success']) {
+            $_SESSION['swal'] = ['icon'=>'info','title'=>'Rejected','text'=>'Enrollment rejected and email sent to '.$email];
+        } else {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'Rejected (Email Failed)','text'=>'Status updated but email could not be sent. '.($result['error'] ?? '')];
+        }
+    } else {
+        $_SESSION['swal'] = ['icon'=>'info','title'=>'Rejected','text'=>'Enrollment rejected. No email address on record.'];
+    }
+    header('Location: '.$_SERVER['PHP_SELF']); exit;
+}
     public function view_archived_ten(){
         $connection = $this->openConn();
         $stmt = $connection->prepare("SELECT *, 'Grade 10' AS grade_label, id_ten AS record_id, 'ten' AS grade_table FROM tbl_ten WHERE is_archived = 1");
@@ -1095,7 +1713,7 @@ public function create_nine() {
         }
     } 
 
-    public function create_eleven() {
+   public function create_eleven() {
     if(isset($_POST['create_eleven'])) {
         $sy = $_POST['sy'] ?? '';
         $lrn = $_POST['lrn'] ?? '';
@@ -1123,6 +1741,12 @@ public function create_nine() {
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
         $id_resident = $_POST['id_resident'] ?? '';
+        $prev_grade_table = trim($_POST['prev_grade_table'] ?? '');
+        $prev_grade_id    = (int)($_POST['prev_grade_id']    ?? 0);
+        $is_ip    = $_POST['is_ip']    ?? 'No';
+        $ip_group = ($is_ip === 'Yes') ? ($_POST['ip_group'] ?? '') : '';
+        $is_4ps   = $_POST['is_4ps']   ?? 'No';
+        $fourps_id = ($is_4ps === 'Yes') ? ($_POST['fourps_id'] ?? '') : '';
 
         // Handle multiple document/picture uploads
         $uploadedPaths = [];
@@ -1154,19 +1778,38 @@ public function create_nine() {
 
         $connection = $this->openConn();
 
+        // LRN duplicate check — only for new students (old/transferee re-use their existing LRN)
+        $student_type = trim($_POST['student_type'] ?? 'new');
+        if ($student_type === 'new') {
+            $lrn_tables = ['tbl_seven','tbl_eight','tbl_nine','tbl_ten','tbl_eleven','tbl_twelve'];
+            $lrn_taken = false;
+            foreach ($lrn_tables as $_lrn_tbl) {
+                $lrn_stmt = $connection->prepare("SELECT COUNT(*) FROM `{$_lrn_tbl}` WHERE `lrn` = ? AND (is_archived = 0 OR is_archived IS NULL)");
+                $lrn_stmt->execute([trim($lrn)]);
+                if ($lrn_stmt->fetchColumn() > 0) { $lrn_taken = true; break; }
+            }
+            if ($lrn_taken) {
+                $safe_lrn = urlencode(trim($lrn));
+                $ref = $_SERVER['HTTP_REFERER'] ?? 'javascript:history.back()';
+                $sep = (strpos($ref, '?') !== false) ? '&' : '?';
+                header('Location: ' . $ref . $sep . 'lrn_error=' . $safe_lrn);
+                exit();
+            }
+        }
+
         $query = "INSERT INTO tbl_eleven (
             `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`,
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`,
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`,
-            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $stmt = $connection->prepare($query);
         $stmt->execute([
             $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email,
             $current_address, $perm_address, $ffname, $flname, $fmi,
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc,
-            $lsa, $lysc, $school_id, $id_resident, $documents_json
+            $lsa, $lysc, $school_id, $id_resident, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
         ]);
 
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
@@ -1218,7 +1861,127 @@ public function create_nine() {
             exit();
         }
     }
+public function approve_eleven() {
+    if (!isset($_POST['approve_eleven'])) return;
+    $id_eleven = $_POST['id_eleven'] ?? null;
+    if (!$id_eleven) {
+        $_SESSION['swal'] = ['icon'=>'error','title'=>'Invalid record.'];
+        header('Location: '.$_SERVER['PHP_SELF']); exit;
+    }
+    $connection = $this->openConn();
+    try { $connection->exec("ALTER TABLE tbl_eleven ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE tbl_eleven ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
+    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_eleven WHERE id_eleven = ?");
+    $fetch->execute([$id_eleven]);
+    $student = $fetch->fetch();
+    $update = $connection->prepare("UPDATE tbl_eleven SET enrollment_status = 'Approved', reject_reason = NULL WHERE id_eleven = ?");
+    $update->execute([$id_eleven]);
 
+    // Auto-archive the previous grade record when this enrollment is approved
+    $prev_tbl = null;
+    $prev_pk  = 0;
+    $prev_stmt = $connection->prepare("SELECT prev_grade_table, prev_grade_id FROM `tbl_eleven` WHERE `id_eleven` = ?");
+    $prev_stmt->execute([$id_eleven]);
+    $prev_row = $prev_stmt->fetch(PDO::FETCH_ASSOC);
+    if ($prev_row) {
+        $prev_tbl = $prev_row['prev_grade_table'];
+        $prev_pk  = (int)$prev_row['prev_grade_id'];
+    }
+    $allowed_tables = ['tbl_seven','tbl_eight','tbl_nine','tbl_ten','tbl_eleven','tbl_twelve'];
+    if ($prev_tbl && $prev_pk > 0 && in_array($prev_tbl, $allowed_tables)) {
+        $pk_map = [
+            'tbl_seven'  => 'id_seven',
+            'tbl_eight'  => 'id_eight',
+            'tbl_nine'   => 'id_nine',
+            'tbl_ten'    => 'id_ten',
+            'tbl_eleven' => 'id_eleven',
+            'tbl_twelve' => 'id_twelve',
+        ];
+        $prev_pk_col = $pk_map[$prev_tbl];
+        $archive_stmt = $connection->prepare(
+            "UPDATE `{$prev_tbl}` SET is_archived = 1, archived_at = NOW() WHERE `{$prev_pk_col}` = ?"
+        );
+        $archive_stmt->execute([$prev_pk]);
+    }
+
+    $this->closeConn();
+    $email = $student['email'] ?? '';
+    $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
+    if (!empty($email)) {
+        $html = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+            <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                <p style='color:#a8c4e0;margin:4px 0 0;'>Enrollment Notification</p>
+            </div>
+            <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                <h3 style='color:#0b2b5c;'>&#127881; Enrollment Approved!</h3>
+                <p>Dear <strong>".htmlspecialchars($name)."</strong>,</p>
+                <p>We are pleased to inform you that your <strong>Grade 11 enrollment</strong> has been
+                   <span style='color:#28a745;font-weight:bold;'>APPROVED</span>.</p>
+                <p>Please visit the school to complete your enrollment requirements and for further instructions.</p>
+                <br><p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+            </div></div>";
+        $alt = "Dear $name,\n\nYour Grade 11 enrollment has been APPROVED.\nPlease visit the school to complete your enrollment requirements.\n\n– Eusebia High School";
+        $result = $this->sendMail($email, $name, 'Grade 11 Enrollment Approved  Eusebia High School', $html, $alt);
+        if ($result['success']) {
+            $_SESSION['swal'] = ['icon'=>'success','title'=>'Approved!','text'=>'Enrollment approved and email sent to '.$email];
+        } else {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'Approved (Email Failed)','text'=>'Status updated but email could not be sent. '.($result['error'] ?? '')];
+        }
+    } else {
+        $_SESSION['swal'] = ['icon'=>'success','title'=>'Approved!','text'=>'Enrollment approved. No email address on record.'];
+    }
+    header('Location: '.$_SERVER['PHP_SELF']); exit;
+}
+ 
+public function reject_eleven() {
+    if (!isset($_POST['reject_eleven'])) return;
+    $id_eleven     = $_POST['id_eleven'] ?? null;
+    $reject_reason = trim($_POST['reject_reason'] ?? '');
+    if (!$id_eleven) {
+        $_SESSION['swal'] = ['icon'=>'error','title'=>'Invalid record.'];
+        header('Location: '.$_SERVER['PHP_SELF']); exit;
+    }
+    $connection = $this->openConn();
+    try { $connection->exec("ALTER TABLE tbl_eleven ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE tbl_eleven ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
+    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_eleven WHERE id_eleven = ?");
+    $fetch->execute([$id_eleven]);
+    $student = $fetch->fetch();
+    $update = $connection->prepare("UPDATE tbl_eleven SET enrollment_status = 'Rejected', reject_reason = ? WHERE id_eleven = ?");
+    $update->execute([$reject_reason, $id_eleven]);
+    $this->closeConn();
+    $email = $student['email'] ?? '';
+    $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
+    if (!empty($email)) {
+        $reasonHtml = !empty($reject_reason) ? "<p><strong>Reason:</strong> ".htmlspecialchars($reject_reason)."</p>" : "";
+        $reasonAlt  = !empty($reject_reason) ? "\nReason: $reject_reason\n" : "";
+        $html = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+            <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                <p style='color:#a8c4e0;margin:4px 0 0;'>Enrollment Notification</p>
+            </div>
+            <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                <h3 style='color:#c0392b;'>Enrollment Not Approved</h3>
+                <p>Dear <strong>".htmlspecialchars($name)."</strong>,</p>
+                <p>We regret to inform you that your <strong>Grade 11 enrollment</strong> has been
+                   <span style='color:#c0392b;font-weight:bold;'>REJECTED</span>.</p>
+                {$reasonHtml}
+                <p>If you have questions or would like to appeal, please visit the school during office hours.</p>
+                <br><p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+            </div></div>";
+        $alt = "Dear $name,\n\nWe regret to inform you that your Grade 11 enrollment has been REJECTED.{$reasonAlt}\nPlease visit the school if you have questions.\n\n– Eusebia High School";
+        $result = $this->sendMail($email, $name, 'Grade 11 Enrollment Update  Eusebia High School', $html, $alt);
+        if ($result['success']) {
+            $_SESSION['swal'] = ['icon'=>'info','title'=>'Rejected','text'=>'Enrollment rejected and email sent to '.$email];
+        } else {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'Rejected (Email Failed)','text'=>'Status updated but email could not be sent. '.($result['error'] ?? '')];
+        }
+    } else {
+        $_SESSION['swal'] = ['icon'=>'info','title'=>'Rejected','text'=>'Enrollment rejected. No email address on record.'];
+    }
+    header('Location: '.$_SERVER['PHP_SELF']); exit;
+}
     public function view_archived_eleven(){
         $connection = $this->openConn();
         $stmt = $connection->prepare("SELECT *, 'Grade 11' AS grade_label, id_eleven AS record_id, 'eleven' AS grade_table FROM tbl_eleven WHERE is_archived = 1");
@@ -1318,6 +2081,12 @@ public function create_nine() {
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
         $id_resident = $_POST['id_resident'] ?? '';
+        $prev_grade_table = trim($_POST['prev_grade_table'] ?? '');
+        $prev_grade_id    = (int)($_POST['prev_grade_id']    ?? 0);
+        $is_ip    = $_POST['is_ip']    ?? 'No';
+        $ip_group = ($is_ip === 'Yes') ? ($_POST['ip_group'] ?? '') : '';
+        $is_4ps   = $_POST['is_4ps']   ?? 'No';
+        $fourps_id = ($is_4ps === 'Yes') ? ($_POST['fourps_id'] ?? '') : '';
 
         // Handle multiple document/picture uploads
         $uploadedPaths = [];
@@ -1349,19 +2118,38 @@ public function create_nine() {
 
         $connection = $this->openConn();
 
+        // LRN duplicate check — only for new students (old/transferee re-use their existing LRN)
+        $student_type = trim($_POST['student_type'] ?? 'new');
+        if ($student_type === 'new') {
+            $lrn_tables = ['tbl_seven','tbl_eight','tbl_nine','tbl_ten','tbl_eleven','tbl_twelve'];
+            $lrn_taken = false;
+            foreach ($lrn_tables as $_lrn_tbl) {
+                $lrn_stmt = $connection->prepare("SELECT COUNT(*) FROM `{$_lrn_tbl}` WHERE `lrn` = ? AND (is_archived = 0 OR is_archived IS NULL)");
+                $lrn_stmt->execute([trim($lrn)]);
+                if ($lrn_stmt->fetchColumn() > 0) { $lrn_taken = true; break; }
+            }
+            if ($lrn_taken) {
+                $safe_lrn = urlencode(trim($lrn));
+                $ref = $_SERVER['HTTP_REFERER'] ?? 'javascript:history.back()';
+                $sep = (strpos($ref, '?') !== false) ? '&' : '?';
+                header('Location: ' . $ref . $sep . 'lrn_error=' . $safe_lrn);
+                exit();
+            }
+        }
+
         $query = "INSERT INTO tbl_twelve (
             `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`,
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`,
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`,
-            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $stmt = $connection->prepare($query);
         $stmt->execute([
             $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email,
             $current_address, $perm_address, $ffname, $flname, $fmi,
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc,
-            $lsa, $lysc, $school_id, $id_resident, $documents_json
+            $lsa, $lysc, $school_id, $id_resident, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
         ]);
 
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
@@ -1386,7 +2174,6 @@ public function create_nine() {
         exit();
     }
 }
-
     public function get_single_twelve($id_resident){
         // Removed the $_GET overwrite so it uses the passed ID correctly
         $connection = $this->openConn();
@@ -1414,7 +2201,127 @@ public function create_nine() {
             exit();
         }
     }
+public function approve_twelve() {
+    if (!isset($_POST['approve_twelve'])) return;
+    $id_twelve = $_POST['id_twelve'] ?? null;
+    if (!$id_twelve) {
+        $_SESSION['swal'] = ['icon'=>'error','title'=>'Invalid record.'];
+        header('Location: '.$_SERVER['PHP_SELF']); exit;
+    }
+    $connection = $this->openConn();
+    try { $connection->exec("ALTER TABLE tbl_twelve ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE tbl_twelve ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
+    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_twelve WHERE id_twelve = ?");
+    $fetch->execute([$id_twelve]);
+    $student = $fetch->fetch();
+    $update = $connection->prepare("UPDATE tbl_twelve SET enrollment_status = 'Approved', reject_reason = NULL WHERE id_twelve = ?");
+    $update->execute([$id_twelve]);
 
+    // Auto-archive the previous grade record when this enrollment is approved
+    $prev_tbl = null;
+    $prev_pk  = 0;
+    $prev_stmt = $connection->prepare("SELECT prev_grade_table, prev_grade_id FROM `tbl_twelve` WHERE `id_twelve` = ?");
+    $prev_stmt->execute([$id_twelve]);
+    $prev_row = $prev_stmt->fetch(PDO::FETCH_ASSOC);
+    if ($prev_row) {
+        $prev_tbl = $prev_row['prev_grade_table'];
+        $prev_pk  = (int)$prev_row['prev_grade_id'];
+    }
+    $allowed_tables = ['tbl_seven','tbl_eight','tbl_nine','tbl_ten','tbl_eleven','tbl_twelve'];
+    if ($prev_tbl && $prev_pk > 0 && in_array($prev_tbl, $allowed_tables)) {
+        $pk_map = [
+            'tbl_seven'  => 'id_seven',
+            'tbl_eight'  => 'id_eight',
+            'tbl_nine'   => 'id_nine',
+            'tbl_ten'    => 'id_ten',
+            'tbl_eleven' => 'id_eleven',
+            'tbl_twelve' => 'id_twelve',
+        ];
+        $prev_pk_col = $pk_map[$prev_tbl];
+        $archive_stmt = $connection->prepare(
+            "UPDATE `{$prev_tbl}` SET is_archived = 1, archived_at = NOW() WHERE `{$prev_pk_col}` = ?"
+        );
+        $archive_stmt->execute([$prev_pk]);
+    }
+
+    $this->closeConn();
+    $email = $student['email'] ?? '';
+    $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
+    if (!empty($email)) {
+        $html = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+            <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                <p style='color:#a8c4e0;margin:4px 0 0;'>Enrollment Notification</p>
+            </div>
+            <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                <h3 style='color:#0b2b5c;'>&#127881; Enrollment Approved!</h3>
+                <p>Dear <strong>".htmlspecialchars($name)."</strong>,</p>
+                <p>We are pleased to inform you that your <strong>Grade 12 enrollment</strong> has been
+                   <span style='color:#28a745;font-weight:bold;'>APPROVED</span>.</p>
+                <p>Please visit the school to complete your enrollment requirements and for further instructions.</p>
+                <br><p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+            </div></div>";
+        $alt = "Dear $name,\n\nYour Grade 12 enrollment has been APPROVED.\nPlease visit the school to complete your enrollment requirements.\n\n– Eusebia High School";
+        $result = $this->sendMail($email, $name, 'Grade 12 Enrollment Approved  Eusebia High School', $html, $alt);
+        if ($result['success']) {
+            $_SESSION['swal'] = ['icon'=>'success','title'=>'Approved!','text'=>'Enrollment approved and email sent to '.$email];
+        } else {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'Approved (Email Failed)','text'=>'Status updated but email could not be sent. '.($result['error'] ?? '')];
+        }
+    } else {
+        $_SESSION['swal'] = ['icon'=>'success','title'=>'Approved!','text'=>'Enrollment approved. No email address on record.'];
+    }
+    header('Location: '.$_SERVER['PHP_SELF']); exit;
+}
+ 
+public function reject_twelve() {
+    if (!isset($_POST['reject_twelve'])) return;
+    $id_twelve     = $_POST['id_twelve'] ?? null;
+    $reject_reason = trim($_POST['reject_reason'] ?? '');
+    if (!$id_twelve) {
+        $_SESSION['swal'] = ['icon'=>'error','title'=>'Invalid record.'];
+        header('Location: '.$_SERVER['PHP_SELF']); exit;
+    }
+    $connection = $this->openConn();
+    try { $connection->exec("ALTER TABLE tbl_twelve ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE tbl_twelve ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
+    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_twelve WHERE id_twelve = ?");
+    $fetch->execute([$id_twelve]);
+    $student = $fetch->fetch();
+    $update = $connection->prepare("UPDATE tbl_twelve SET enrollment_status = 'Rejected', reject_reason = ? WHERE id_twelve = ?");
+    $update->execute([$reject_reason, $id_twelve]);
+    $this->closeConn();
+    $email = $student['email'] ?? '';
+    $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
+    if (!empty($email)) {
+        $reasonHtml = !empty($reject_reason) ? "<p><strong>Reason:</strong> ".htmlspecialchars($reject_reason)."</p>" : "";
+        $reasonAlt  = !empty($reject_reason) ? "\nReason: $reject_reason\n" : "";
+        $html = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+            <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                <p style='color:#a8c4e0;margin:4px 0 0;'>Enrollment Notification</p>
+            </div>
+            <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                <h3 style='color:#c0392b;'>Enrollment Not Approved</h3>
+                <p>Dear <strong>".htmlspecialchars($name)."</strong>,</p>
+                <p>We regret to inform you that your <strong>Grade 12 enrollment</strong> has been
+                   <span style='color:#c0392b;font-weight:bold;'>REJECTED</span>.</p>
+                {$reasonHtml}
+                <p>If you have questions or would like to appeal, please visit the school during office hours.</p>
+                <br><p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+            </div></div>";
+        $alt = "Dear $name,\n\nWe regret to inform you that your Grade 12 enrollment has been REJECTED.{$reasonAlt}\nPlease visit the school if you have questions.\n\n– Eusebia High School";
+        $result = $this->sendMail($email, $name, 'Grade 12 Enrollment Update  Eusebia High School', $html, $alt);
+        if ($result['success']) {
+            $_SESSION['swal'] = ['icon'=>'info','title'=>'Rejected','text'=>'Enrollment rejected and email sent to '.$email];
+        } else {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'Rejected (Email Failed)','text'=>'Status updated but email could not be sent. '.($result['error'] ?? '')];
+        }
+    } else {
+        $_SESSION['swal'] = ['icon'=>'info','title'=>'Rejected','text'=>'Enrollment rejected. No email address on record.'];
+    }
+    header('Location: '.$_SERVER['PHP_SELF']); exit;
+}
     public function view_archived_twelve(){
         $connection = $this->openConn();
         $stmt = $connection->prepare("SELECT *, 'Grade 12' AS grade_label, id_twelve AS record_id, 'twelve' AS grade_table FROM tbl_twelve WHERE is_archived = 1");
@@ -1634,11 +2541,15 @@ public function create_nine() {
                     foreach ($common_fields as $f) {
                         $col_val[$f] = $row[$f] ?? '';
                     }
+                    // Promoted students are pre-approved — no second approval needed
+                    $col_val['enrollment_status'] = 'Approved';
                 } else {
                     $col_val = ['sy' => $new_sy];
                     foreach ($common_fields as $f) {
                         $col_val[$f] = $row[$f] ?? '';
                     }
+                    // Promoted students are pre-approved — no second approval needed
+                    $col_val['enrollment_status'] = 'Approved';
                 }
 
                 $cols        = implode(', ', array_keys($col_val));
@@ -1673,8 +2584,370 @@ public function create_nine() {
             return ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
         }
     }
-    
-    
+    public function submit_promotion_request() {
+        if (!isset($_POST['submit_promotion_request'])) return;
+ 
+        $conn = $this->openConn();
+ 
+        // Ensure table exists
+        $conn->exec("CREATE TABLE IF NOT EXISTS tbl_promotion_requests (
+            id           INT AUTO_INCREMENT PRIMARY KEY,
+            id_resident  INT NOT NULL,
+            from_grade   VARCHAR(5) NOT NULL,
+            to_grade     VARCHAR(5) NOT NULL,
+            record_id    INT NOT NULL,
+            documents    TEXT,
+            notes        TEXT,
+            status       VARCHAR(20) NOT NULL DEFAULT 'Pending',
+            reject_reason TEXT,
+            submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            reviewed_at  DATETIME,
+            reviewed_by  INT
+        )");
+ 
+        $user = $this->get_userdata();
+        if (empty($user)) { return; }
+ 
+        $id_resident = (int)($user['id_resident'] ?? 0);
+        $from_grade  = trim($_POST['from_grade'] ?? '');
+        $record_id   = (int)($_POST['record_id'] ?? 0);
+        $notes       = trim($_POST['notes'] ?? '');
+ 
+        $grade_map = [
+            '7' => '8', '8' => '9', '9' => '10',
+            '10' => '11', '11' => '12'
+        ];
+        if (!isset($grade_map[$from_grade]) || $id_resident === 0 || $record_id === 0) {
+            $_SESSION['swal'] = ['icon'=>'error','title'=>'Error','text'=>'Invalid promotion request.'];
+            header('Location: promotion_request.php'); exit;
+        }
+        $to_grade = $grade_map[$from_grade];
+
+        // Bug Fix 2: Verify the student's enrollment in the source grade is actually Approved
+        $src_table_map = [
+            '7'  => ['table' => 'tbl_seven',  'pk' => 'id_seven'],
+            '8'  => ['table' => 'tbl_eight',  'pk' => 'id_eight'],
+            '9'  => ['table' => 'tbl_nine',   'pk' => 'id_nine'],
+            '10' => ['table' => 'tbl_ten',    'pk' => 'id_ten'],
+            '11' => ['table' => 'tbl_eleven', 'pk' => 'id_eleven'],
+        ];
+        $src = $src_table_map[$from_grade];
+        $enr_check = $conn->prepare(
+            "SELECT enrollment_status FROM {$src['table']}
+             WHERE {$src['pk']} = ? AND id_resident = ? AND (is_archived = 0 OR is_archived IS NULL)
+             LIMIT 1"
+        );
+        $enr_check->execute([$record_id, $id_resident]);
+        $enr_row = $enr_check->fetch(PDO::FETCH_ASSOC);
+        if (!$enr_row || strtolower($enr_row['enrollment_status'] ?? '') !== 'approved') {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'Not Yet Approved',
+                'text'=>'Your enrollment for this grade must be approved before you can request a promotion.'];
+            header('Location: promotion_request.php'); exit;
+        }
+
+        // Bug Fix 3: Block if a Pending OR Approved promotion request already exists for this grade
+        $dup = $conn->prepare(
+            "SELECT id FROM tbl_promotion_requests
+             WHERE id_resident = ? AND from_grade = ? AND status IN ('Pending', 'Approved')"
+        );
+        $dup->execute([$id_resident, $from_grade]);
+        $dup_row = $dup->fetch();
+        if ($dup_row) {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'Already Processed',
+                'text'=>'You already have a pending or approved promotion request for this grade.'];
+            header('Location: promotion_request.php'); exit;
+        }
+ 
+        // Handle file uploads
+        $uploadedPaths = [];
+        if (!empty($_FILES['documents']['name'][0])) {
+            $uploadDir = __DIR__ . '/../uploads/promotion_docs/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+            $allowedTypes = [
+                'image/jpeg','image/png','image/gif','image/webp',
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ];
+            $maxSize = 5 * 1024 * 1024; // 5 MB
+            foreach ($_FILES['documents']['tmp_name'] as $idx => $tmpName) {
+                if ($_FILES['documents']['error'][$idx] !== UPLOAD_ERR_OK) continue;
+                if ($_FILES['documents']['size'][$idx] > $maxSize) continue;
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mime  = $finfo->file($tmpName);
+                if (!in_array($mime, $allowedTypes)) continue;
+                $origName  = basename($_FILES['documents']['name'][$idx]);
+                $safeName  = time() . '_' . $id_resident . '_' . $idx . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $origName);
+                $dest      = $uploadDir . $safeName;
+                if (move_uploaded_file($tmpName, $dest)) {
+                    $uploadedPaths[] = 'uploads/promotion_docs/' . $safeName;
+                }
+            }
+        }
+ 
+        $docs_json = !empty($uploadedPaths) ? json_encode($uploadedPaths) : null;
+ 
+        $ins = $conn->prepare(
+            "INSERT INTO tbl_promotion_requests
+             (id_resident, from_grade, to_grade, record_id, documents, notes, status, submitted_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'Pending', NOW())"
+        );
+        $ins->execute([$id_resident, $from_grade, $to_grade, $record_id, $docs_json, $notes]);
+ 
+        $_SESSION['swal'] = ['icon'=>'success','title'=>'Request Submitted!',
+            'text'=>'Your promotion request has been submitted. Please wait for admin approval.'];
+        header('Location: my_submissions.php'); exit;
+    }
+ 
+    /**
+     * Returns all promotion requests for the current resident.
+     */
+    public function get_my_promotion_requests() {
+        $conn = $this->openConn();
+        try {
+            $conn->exec("CREATE TABLE IF NOT EXISTS tbl_promotion_requests (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                id_resident INT NOT NULL,
+                from_grade VARCHAR(5) NOT NULL,
+                to_grade VARCHAR(5) NOT NULL,
+                record_id INT NOT NULL,
+                documents TEXT,
+                notes TEXT,
+                status VARCHAR(20) NOT NULL DEFAULT 'Pending',
+                reject_reason TEXT,
+                submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                reviewed_at DATETIME,
+                reviewed_by INT
+            )");
+            $user = $this->get_userdata();
+            if (empty($user)) return [];
+            $id_resident = (int)($user['id_resident'] ?? 0);
+            $stmt = $conn->prepare(
+                "SELECT * FROM tbl_promotion_requests WHERE id_resident = ? ORDER BY submitted_at DESC"
+            );
+            $stmt->execute([$id_resident]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) { return []; }
+    }
+ 
+    /**
+     * Admin: returns all promotion requests with student name info.
+     */
+    public function admin_get_promotion_requests($status_filter = '') {
+        $conn = $this->openConn();
+        try {
+            $conn->exec("CREATE TABLE IF NOT EXISTS tbl_promotion_requests (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                id_resident INT NOT NULL,
+                from_grade VARCHAR(5) NOT NULL,
+                to_grade VARCHAR(5) NOT NULL,
+                record_id INT NOT NULL,
+                documents TEXT,
+                notes TEXT,
+                status VARCHAR(20) NOT NULL DEFAULT 'Pending',
+                reject_reason TEXT,
+                submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                reviewed_at DATETIME,
+                reviewed_by INT
+            )");
+            $where = $status_filter ? "WHERE pr.status = ?" : "";
+            $sql = "SELECT pr.*, r.fname, r.lname, r.mi
+                    FROM tbl_promotion_requests pr
+                    LEFT JOIN tbl_resident r ON r.id_resident = pr.id_resident
+                    {$where}
+                    ORDER BY pr.submitted_at DESC";
+            $stmt = $conn->prepare($sql);
+            $status_filter ? $stmt->execute([$status_filter]) : $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) { return []; }
+    }
+ 
+    /**
+     * Admin: approve a promotion request and actually promote the student.
+     */
+    public function admin_approve_promotion_request() {
+        if (!isset($_POST['approve_promotion_request'])) return;
+        $this->validate_admin();
+ 
+        $id     = (int)($_POST['request_id'] ?? 0);
+        $new_sy = trim($_POST['new_sy'] ?? '');
+        $conn   = $this->openConn();
+ 
+        // Fetch the promotion request
+        $stmt = $conn->prepare("SELECT * FROM tbl_promotion_requests WHERE id = ?");
+        $stmt->execute([$id]);
+        $req = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$req || $req['status'] !== 'Pending') {
+            $_SESSION['swal'] = ['icon'=>'error','title'=>'Error','text'=>'Request not found or already processed.'];
+            header('Location: admn_promotion_requests.php'); exit;
+        }
+ 
+        if (!preg_match('/^\d{4}-\d{4}$/', $new_sy)) {
+            $_SESSION['swal'] = ['icon'=>'error','title'=>'Invalid SY','text'=>'School year must be in YYYY-YYYY format.'];
+            header('Location: admn_promotion_requests.php'); exit;
+        }
+ 
+        // Fetch the resident's email and name from tbl_resident
+        $res = $conn->prepare("SELECT fname, lname, email FROM tbl_resident WHERE id_resident = ?");
+        $res->execute([$req['id_resident']]);
+        $resident = $res->fetch(PDO::FETCH_ASSOC);
+        $email = $resident['email'] ?? '';
+        $name  = trim(($resident['fname'] ?? '') . ' ' . ($resident['lname'] ?? ''));
+        $from_label = 'Grade ' . $req['from_grade'];
+        $to_label   = 'Grade ' . $req['to_grade'];
+ 
+        // Perform the actual promotion
+        $result = $this->promote_students(
+            $req['from_grade'],
+            $req['to_grade'],
+            $new_sy,
+            [$req['record_id']]
+        );
+ 
+        if ($result['success']) {
+            $conn->prepare(
+                "UPDATE tbl_promotion_requests SET status='Approved', reviewed_at=NOW() WHERE id=?"
+            )->execute([$id]);
+ 
+            // Send approval email
+            if (!empty($email)) {
+                $html = "
+                <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+                    <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                        <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                        <p style='color:#a8c4e0;margin:4px 0 0;'>Grade Promotion Notification</p>
+                    </div>
+                    <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                        <h3 style='color:#0b2b5c;'>&#127881; Promotion Approved!</h3>
+                        <p>Dear <strong>" . htmlspecialchars($name) . "</strong>,</p>
+                        <p>We are pleased to inform you that your grade promotion request from
+                           <strong>{$from_label}</strong> to <strong>{$to_label}</strong> has been
+                           <span style='color:#28a745;font-weight:bold;'>APPROVED</span>
+                           for School Year <strong>{$new_sy}</strong>.</p>
+                        <p>Please visit the school to complete your enrollment requirements for {$to_label} and for further instructions.</p>
+                        <br>
+                        <p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+                    </div>
+                </div>";
+ 
+                $alt = "Dear {$name},\n\nYour promotion request from {$from_label} to {$to_label} has been APPROVED for School Year {$new_sy}.\nPlease visit the school to complete your requirements.\n\nEusebia Paz Arroyo Memorial National High School";
+ 
+                $mailResult = $this->sendMail($email, $name, "{$to_label} Promotion Approved — Eusebia High School", $html, $alt);
+ 
+                if ($mailResult['success']) {
+                    $_SESSION['swal'] = ['icon'=>'success','title'=>'Approved & Promoted!',
+                        'text' => $result['message'] . ' Email notification sent to ' . $email . '.'];
+                } else {
+                    $_SESSION['swal'] = ['icon'=>'warning','title'=>'Approved (Email Failed)',
+                        'text' => $result['message'] . ' However, the email could not be sent. ' . ($mailResult['error'] ?? '')];
+                }
+            } else {
+                $_SESSION['swal'] = ['icon'=>'success','title'=>'Approved & Promoted!',
+                    'text' => $result['message'] . ' No email address on record.'];
+            }
+        } else {
+            $_SESSION['swal'] = ['icon'=>'error','title'=>'Promotion Failed','text'=>$result['message']];
+        }
+        header('Location: admn_promotion_requests.php'); exit;
+    }
+ 
+    /**
+     * Admin: reject a promotion request and email the resident.
+     */
+    public function admin_reject_promotion_request() {
+        if (!isset($_POST['reject_promotion_request'])) return;
+        $this->validate_admin();
+ 
+        $id     = (int)($_POST['request_id'] ?? 0);
+        $reason = trim($_POST['reject_reason'] ?? '');
+        $conn   = $this->openConn();
+ 
+        // Fetch the promotion request
+        $stmt = $conn->prepare("SELECT * FROM tbl_promotion_requests WHERE id = ?");
+        $stmt->execute([$id]);
+        $req = $stmt->fetch(PDO::FETCH_ASSOC);
+ 
+        // Fetch the resident's email and name
+        $email = '';
+        $name  = '';
+        $from_label = 'Grade ' . ($req['from_grade'] ?? '');
+        $to_label   = 'Grade ' . ($req['to_grade'] ?? '');
+        if ($req) {
+            $res = $conn->prepare("SELECT fname, lname, email FROM tbl_resident WHERE id_resident = ?");
+            $res->execute([$req['id_resident']]);
+            $resident = $res->fetch(PDO::FETCH_ASSOC);
+            $email = $resident['email'] ?? '';
+            $name  = trim(($resident['fname'] ?? '') . ' ' . ($resident['lname'] ?? ''));
+        }
+ 
+        $conn->prepare(
+            "UPDATE tbl_promotion_requests SET status='Rejected', reject_reason=?, reviewed_at=NOW() WHERE id=?"
+        )->execute([$reason, $id]);
+ 
+        // Send rejection email
+        if (!empty($email)) {
+            $reasonHtml = !empty($reason)
+                ? "<p><strong>Reason:</strong> " . htmlspecialchars($reason) . "</p>"
+                : "";
+            $reasonAlt = !empty($reason) ? "\nReason: {$reason}\n" : "";
+ 
+            $html = "
+            <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+                <div style='background:#0b2b5c;padding:24px;border-radius:8px 8px 0 0;text-align:center;'>
+                    <h2 style='color:#fff;margin:0;'>Eusebia Paz Arroyo Memorial National High School</h2>
+                    <p style='color:#a8c4e0;margin:4px 0 0;'>Grade Promotion Notification</p>
+                </div>
+                <div style='background:#f9f9f9;padding:30px;border:1px solid #ddd;border-radius:0 0 8px 8px;'>
+                    <h3 style='color:#c0392b;'>Promotion Request Not Approved</h3>
+                    <p>Dear <strong>" . htmlspecialchars($name) . "</strong>,</p>
+                    <p>We regret to inform you that your grade promotion request from
+                       <strong>{$from_label}</strong> to <strong>{$to_label}</strong> has been
+                       <span style='color:#c0392b;font-weight:bold;'>REJECTED</span>.</p>
+                    {$reasonHtml}
+                    <p>If you have questions or would like to appeal, please visit the school during office hours and bring the necessary documents.</p>
+                    <br>
+                    <p style='color:#888;font-size:12px;'>This is an automated message. Please do not reply.</p>
+                </div>
+            </div>";
+ 
+            $alt = "Dear {$name},\n\nYour promotion request from {$from_label} to {$to_label} has been REJECTED.{$reasonAlt}\nPlease visit the school if you have questions.\n\nEusebia Paz Arroyo Memorial National High School";
+ 
+            $mailResult = $this->sendMail($email, $name, "{$to_label} Promotion Request Rejected — Eusebia High School", $html, $alt);
+ 
+            if ($mailResult['success']) {
+                $_SESSION['swal'] = ['icon'=>'info','title'=>'Request Rejected',
+                    'text' => 'The promotion request has been rejected and a notification email was sent to ' . $email . '.'];
+            } else {
+                $_SESSION['swal'] = ['icon'=>'warning','title'=>'Rejected (Email Failed)',
+                    'text' => 'Request rejected but email could not be sent. ' . ($mailResult['error'] ?? '')];
+            }
+        } else {
+            $_SESSION['swal'] = ['icon'=>'info','title'=>'Request Rejected',
+                'text' => 'The promotion request has been rejected. No email address on record.'];
+        }
+        header('Location: admn_promotion_requests.php'); exit;
+    }
+
+    public function admin_bulk_delete_promotion_requests() {
+        if (!isset($_POST['bulk_delete_promotion'])) return;
+        $this->validate_admin();
+
+        $ids = $_POST['selected_ids'] ?? [];
+        if (empty($ids)) {
+            $_SESSION['swal'] = ['icon'=>'warning','title'=>'No Selection','text'=>'Please select at least one request to delete.'];
+            header('Location: admn_promotion_requests.php'); exit;
+        }
+
+        $conn = $this->openConn();
+        $ids  = array_map('intval', $ids);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $conn->prepare("DELETE FROM tbl_promotion_requests WHERE id IN ({$placeholders})")->execute($ids);
+
+        $count = count($ids);
+        $_SESSION['swal'] = ['icon'=>'success','title'=>'Deleted','text'=>"{$count} promotion request(s) deleted."];
+        header('Location: admn_promotion_requests.php'); exit;
+    }
+
 }
 $eusebia = new EUSEBIAClass(); //variable to call outside of its class
 

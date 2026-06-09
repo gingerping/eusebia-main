@@ -1,6 +1,7 @@
 <?php 
-error_reporting(E_ALL ^ E_WARNING);
 
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 if(!isset($_SESSION)) {
     $showdate = date("Y-m-d");
     date_default_timezone_set('Asia/Manila');
@@ -20,7 +21,8 @@ $eusebia->login();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
     <title>EPANHS | Login</title>
-
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b2b5c">
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -236,6 +238,79 @@ $eusebia->login();
             cursor: pointer;
         }
 
+        /* ── SOCIAL BUTTONS ── */
+        .social-divider {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin: 1.2rem 0;
+        }
+
+        .social-divider::before,
+        .social-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
+        }
+
+        .social-divider span {
+            font-size: .78rem;
+            color: #94a3b8;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .btn-social {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .65rem;
+            width: 100%;
+            padding: .72rem 1rem;
+            border-radius: 40px;
+            font-size: .9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+            text-decoration: none;
+            border: 1.5px solid;
+            margin-bottom: .75rem;
+        }
+
+        .btn-google {
+            background: #ffffff;
+            border-color: #dadce0;
+            color: #3c4043;
+        }
+
+        .btn-google:hover {
+            background: #f8f9fa;
+            box-shadow: 0 2px 10px rgba(0,0,0,.12);
+            transform: translateY(-1px);
+            color: #3c4043;
+        }
+
+        .btn-facebook {
+            background: #1877f2;
+            border-color: #1877f2;
+            color: #ffffff;
+        }
+
+        .btn-facebook:hover {
+            background: #0c63d4;
+            border-color: #0c63d4;
+            box-shadow: 0 2px 10px rgba(24,119,242,.35);
+            transform: translateY(-1px);
+            color: #ffffff;
+        }
+
+        .btn-social .social-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
         /* ── BUTTONS ── */
         .btn-login-submit {
             background: linear-gradient(135deg, #0b2b5c, #1f5a9e);
@@ -281,9 +356,12 @@ $eusebia->login();
         footer {
             background: #0b1f33;
             color: #cddcec;
-            padding: 1rem;
+            padding: 2rem 1rem;
             text-align: center;
-            font-size: .78rem;
+            font-size: 0.9rem;
+            border-top-left-radius: 32px;
+            border-top-right-radius: 32px;
+            margin-top: 3rem;
         }
 
         @media (max-width: 500px) {
@@ -319,6 +397,12 @@ $eusebia->login();
 
         <div class="card login-card">
             <div class="card-body">
+                <?php if (!empty($_SESSION['google_error'])): ?>
+                    <div class="alert alert-danger" style="border-radius:14px; font-size:.88rem;">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <?= $_SESSION['google_error']; unset($_SESSION['google_error']); ?>
+                    </div>
+                <?php endif; ?>
                 <form method="post">
                     <label class="form-label">Email or Phone</label>
                     <div class="input-group-custom">
@@ -341,7 +425,24 @@ $eusebia->login();
                         <i class="fas fa-sign-in-alt me-2"></i> Log in
                     </button>
                 </form>
+<div class="text-end mb-3" style="margin-top:-0.8rem;">
+    <a href="forgot_password.php" style="font-size:.85rem; color:#2a6f9c; text-decoration:none; font-weight:500;">
+        <i class="fas fa-question-circle me-1"></i> Forgot Password?
+    </a>
+</div>
+                <div class="social-divider"><span>or continue with</span></div>
 
+                <a href="#" class="btn-social btn-google" onclick="handleGoogleLogin(event)">
+                    <svg class="social-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    Continue with Google
+                </a>
+
+               
                 <hr>
 
                 <div class="text-center mb-1">
@@ -357,16 +458,46 @@ $eusebia->login();
 </div>
 
 <footer class="footer-custom">
-  <div class="container">
-    <i class="fas fa-school me-2"></i> Eusebia Paz Arroyo Memorial National High School
-    <br><small><?= date('Y') ?> EPAMNHS. All rights reserved.</small>
-  </div>
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-6 mb-2 mb-md-0 text-md-start">
+                <i class="fas fa-school me-2"></i> Eusebia Paz Arroyo Memorial National High School
+            </div>
+            <div class="col-md-6 text-md-end">
+                <p class="mb-0">&copy; <?= date('Y') ?> EPAMNHS Portal. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
 </footer>
-
+<script src="js/pwa.js"></script>
 <script>
     function myFunction() {
         var x = document.getElementById("myInput");
         x.type = (x.type === "password") ? "text" : "password";
+    }
+
+    function handleGoogleLogin(e) {
+        e.preventDefault();
+        var params = new URLSearchParams({
+            client_id:     '240563055427-f8m83d6t72de5ck1leqrvuduenbghoon.apps.googleusercontent.com',
+            redirect_uri:  'https://eusebianationalhighschool.gt.tc/google_callback.php',
+            response_type: 'code',
+            scope:         'openid email profile',
+            prompt:        'select_account'
+        });
+        window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+    }
+
+    function handleFacebookLogin(e) {
+        e.preventDefault();
+        var params = new URLSearchParams({
+            client_id:     '1384598473521605',
+            redirect_uri:  'https://eusebianationalhighschool.gt.tc/facebook_callback.php',
+            response_type: 'code',
+            scope:         'email,public_profile',
+            auth_type:     'rerequest'
+        });
+        window.location.href = 'https://www.facebook.com/v18.0/dialog/oauth?' + params.toString();
     }
 </script>
 
