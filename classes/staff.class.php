@@ -4,262 +4,222 @@
 
     class StaffClass extends EUSEBIAClass {
 
-        
-        //authentication method for residents to enter
-        public function residentlogin() {
-        if(isset($_POST['residentlogin'])) {
-
-            $username = $_POST['email'];
-            $password = $_POST['password']; 
-        
-            $connection = $this->openConn();
-            $stmt = $connection->prepare("SELECT * FROM tbl_residents WHERE email = ? AND password = ?");
-            $stmt->Execute([$username, $password]);
-            $user = $stmt->fetch();
-            $total = $stmt->rowCount();
-            
-                //calls the set_userdata function 
-                if($total > 0) {
-                    $this->set_userdata($user);
-                    header('Location: resident_homepage.php');
-                }
-                
-                else {
-                    echo '<script>alert("Email or Password is Invalid")</script>';
-                }
-            }
-        }
-    
-
-    
-    //------------------------------------- CRUD FUNCTIONS FOR STAFF -----------------------------------------------
+    // ==================== CRUD ====================
 
         public function create_staff() {
+            if (!isset($_POST['add_staff'])) return;
 
-            if(isset($_POST['add_staff'])) {
-                $email = $_POST['email'];
-                $password = ($_POST['password']);
-                $lname = $_POST['lname'];
-                $fname = $_POST['fname'];
-                $mi = $_POST['mi'];
-                $age = $_POST['age'];
-                $sex = $_POST['sex'];
-                $address = $_POST['address'];
-                $contact = $_POST['contact'];
-                $position = $_POST['position'];
-                $role = $_POST['role'];
-                $addedby = $_POST['addedby'];
+            $email           = trim($_POST['email'] ?? '');
+            $password        = $_POST['password'] ?? '';
+            $lname           = trim($_POST['lname'] ?? '');
+            $fname           = trim($_POST['fname'] ?? '');
+            $mi              = trim($_POST['mi'] ?? '');
+            $age             = (int)($_POST['age'] ?? 0);
+            $sex             = $_POST['sex'] ?? '';
+            $address         = trim($_POST['address'] ?? '');
+            $contact         = trim($_POST['contact'] ?? '');
+            $position        = trim($_POST['position'] ?? '');
+            $addedby         = trim($_POST['addedby'] ?? '');
+            $subject_handled = trim($_POST['subject_handled'] ?? '');
+            $adviser_grade   = trim($_POST['adviser_grade'] ?? '');
+            $subject_grades  = isset($_POST['subject_grades']) && is_array($_POST['subject_grades'])
+                               ? implode(',', $_POST['subject_grades']) : '';
 
-                if ($this->check_staff($email) == 0 ) {
-
-                    $connection = $this->openConn();
-                    $stmt = $connection->prepare("INSERT INTO tbl_user (`email`,`password`,`lname`,`fname`,
-                    `mi`, `age`, `sex`, `address`, `contact`, `position` , `role`, `addedby`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    
-                    $stmt->Execute([$email, $password, $lname, $fname, $mi, $age, $sex, $address, $contact, $position, $role, $addedby]);
-                    $message2 = "New Staff Adedd";
-    
-                    echo "<script type='text/javascript'>alert('$message2');</script>";
-                    header('refresh:0');
-    
-                }
-
-                else {
-                    echo "<script type='text/javascript'>alert('Email Account already exists');</script>";
-                }
+            if ($this->check_staff_email($email) > 0) {
+                echo "<script>Swal.fire({ icon:'error', title:'Duplicate Email', text:'That email is already registered.' });</script>";
+                return;
             }
-        }
 
-
-        public function view_staff(){
-
+            $hashed = password_hash($password, PASSWORD_DEFAULT);
             $connection = $this->openConn();
+            $stmt = $connection->prepare("INSERT INTO tbl_user
+                (`email`,`password`,`lname`,`fname`,`mi`,`age`,`sex`,`address`,
+                 `contact`,`position`,`role`,`addedby`,`subject_handled`,`adviser_grade`,`subject_grades`)
+                VALUES (?,?,?,?,?,?,?,?,?,?,'staff',?,?,?,?)");
+            $stmt->execute([$email, $hashed, $lname, $fname, $mi, $age, $sex,
+                            $address, $contact, $position, $addedby,
+                            $subject_handled, $adviser_grade, $subject_grades]);
 
-            $stmt = $connection->prepare("SELECT * from tbl_user");
-            $stmt->execute();
-            $view = $stmt->fetchAll();
-            //$rows = $stmt->
-            return $view;
-           
-        }
-
-        public function view_single_staff(){
-
-            $id_staff = $_GET['id_staff'];
-            
-            $connection = $this->openConn();
-            $stmt = $connection->prepare("SELECT * FROM tbl_user where id_user = '$id_staff'");
-            $stmt->execute();
-            $view = $stmt->fetch(); 
-            $total = $stmt->rowCount();
- 
-            //eto yung condition na i ch check kung may laman si products at i re return niya kapag meron
-            if($total > 0 )  {
-                return $view;
-            }
-            else{
-                return false;
-            }
+            echo "<script>
+                Swal.fire({ icon:'success', title:'Teacher Added', text:'Account created successfully.', timer:1800, showConfirmButton:false })
+                .then(() => { window.location.reload(); });
+            </script>";
         }
 
         public function update_staff() {
+            if (!isset($_POST['update_staff'])) return;
 
-            if (isset($_POST['update_staff'])) {
-
-                $id_user = $_GET['id_user'];
-
-                $password = ($_POST['password']);
-
-                $lname = $_POST['lname'];
-
-                $fname = $_POST['fname'];
-
-                $mi = $_POST['mi'];
-
-                $age = $_POST['age'];
-
-                $sex = $_POST['sex'];
-
-                $address = $_POST['address'];
-
-                $contact = $_POST['contact'];
-
-                $position = $_POST['position'];
-
-                $role = $_POST['role'];
-
-                $addedby = $_POST['addedby'];
-
-               
-
-                    $connection = $this->openConn();
-
-                    $stmt = $connection->prepare("UPDATE tbl_user SET `password` =?, lname =?,
-
-                    fname = ?, mi =?, age =?, sex =?, `address` =?, contact =?, position =?,
-
-                    `role` =?, addedby =? WHERE id_user = ?");
-
-                    $stmt->execute([ $password, $lname, $fname, $mi, $age, $sex, $address,
-
-                    $contact, $position,$role, $addedby, $id_user]);
-
-                   
-
-                    $message2 = "Staff Account Updated";
-
-   
-
-                    echo "<script type='text/javascript'>alert('$message2');</script>";
-
-                    header('refresh:0');
-
-
-
-            }
-
-        }
-
-        public function delete_staff(){
-
-            $id_user = $_POST['id_user'];
-
-            if(isset($_POST['delete_staff'])) {
-                $connection = $this->openConn();
-                $stmt = $connection->prepare("DELETE FROM tbl_user where id_user = ?");
-                $stmt->execute([$id_user]);
-                
-                $message2 = "Staff Account Deleted";
-                
-                echo "<script type='text/javascript'>alert('$message2');</script>";
-                 header('refresh:0');
-            }
-        }
-
-    //--------------------------------------------- EXTRA FUNCTIONS FOR STAFF -------------------------------------------------
-
-            public function get_single_staff($id_user){
-
-                $id_user = $_GET['id_user'];
-                
-                $connection = $this->openConn();
-                $stmt = $connection->prepare("SELECT * FROM tbl_user where id_user = ?");
-                $stmt->execute([$id_user]);
-                $user = $stmt->fetch();
-                $total = $stmt->rowCount();
-
-                if($total > 0 )  {
-                    return $user;
-                }
-                else{
-                    return false;
-                }
-            }
-
-
-        public function check_staff($id_user) {
+            $id_user         = (int)($_POST['id_user'] ?? 0);
+            $lname           = trim($_POST['lname'] ?? '');
+            $fname           = trim($_POST['fname'] ?? '');
+            $mi              = trim($_POST['mi'] ?? '');
+            $age             = (int)($_POST['age'] ?? 0);
+            $sex             = $_POST['sex'] ?? '';
+            $address         = trim($_POST['address'] ?? '');
+            $contact         = trim($_POST['contact'] ?? '');
+            $position        = trim($_POST['position'] ?? '');
+            $subject_handled = trim($_POST['subject_handled'] ?? '');
+            $adviser_grade   = trim($_POST['adviser_grade'] ?? '');
+            $subject_grades  = isset($_POST['subject_grades']) && is_array($_POST['subject_grades'])
+                               ? implode(',', $_POST['subject_grades']) : '';
+            $new_password    = trim($_POST['password'] ?? '');
 
             $connection = $this->openConn();
-            $stmt = $connection->prepare("SELECT * FROM tbl_user WHERE id_user = ?");
-            $stmt->Execute([$id_user]);
-            $total = $stmt->rowCount(); 
 
-            return $total;
+            if (!empty($new_password)) {
+                $stmt = $connection->prepare("UPDATE tbl_user SET
+                    `password`=?, lname=?, fname=?, mi=?, age=?, sex=?, `address`=?,
+                    contact=?, position=?, subject_handled=?, adviser_grade=?, subject_grades=?
+                    WHERE id_user=?");
+                $stmt->execute([
+                    password_hash($new_password, PASSWORD_DEFAULT),
+                    $lname, $fname, $mi, $age, $sex, $address,
+                    $contact, $position, $subject_handled, $adviser_grade, $subject_grades,
+                    $id_user
+                ]);
+            } else {
+                $stmt = $connection->prepare("UPDATE tbl_user SET
+                    lname=?, fname=?, mi=?, age=?, sex=?, `address`=?,
+                    contact=?, position=?, subject_handled=?, adviser_grade=?, subject_grades=?
+                    WHERE id_user=?");
+                $stmt->execute([
+                    $lname, $fname, $mi, $age, $sex, $address,
+                    $contact, $position, $subject_handled, $adviser_grade, $subject_grades,
+                    $id_user
+                ]);
+            }
+
+            echo "<script>
+                Swal.fire({ icon:'success', title:'Updated', text:'Teacher record updated.', timer:1800, showConfirmButton:false })
+                .then(() => { window.location.reload(); });
+            </script>";
+        }
+
+        public function delete_staff() {
+            if (!isset($_POST['delete_staff'])) return;
+            $id_user = (int)($_POST['id_user'] ?? 0);
+            $connection = $this->openConn();
+            $stmt = $connection->prepare("DELETE FROM tbl_user WHERE id_user=?");
+            $stmt->execute([$id_user]);
+            echo "<script>
+                Swal.fire({ icon:'info', title:'Removed', text:'Teacher account deleted.', timer:1500, showConfirmButton:false })
+                .then(() => { window.location.reload(); });
+            </script>";
+        }
+
+    // ==================== PROMOTE RESIDENT TO STAFF ====================
+
+        public function promote_resident_to_staff() {
+            if (!isset($_POST['promote_resident'])) return;
+
+            $id_resident     = (int)($_POST['id_resident'] ?? 0);
+            $position        = trim($_POST['position'] ?? '');
+            $subject_handled = trim($_POST['subject_handled'] ?? '');
+            $adviser_grade   = trim($_POST['adviser_grade'] ?? '');
+            $subject_grades  = isset($_POST['subject_grades']) && is_array($_POST['subject_grades'])
+                               ? implode(',', $_POST['subject_grades']) : '';
+
+            if (!$id_resident || !$position) {
+                echo "<script>Swal.fire({ icon:'error', title:'Missing Info', text:'Please select a position.' });</script>";
+                return;
+            }
+
+            $connection = $this->openConn();
+            $stmt = $connection->prepare("SELECT * FROM tbl_resident WHERE id_resident=? AND is_archived=0");
+            $stmt->execute([$id_resident]);
+            $resident = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$resident) {
+                echo "<script>Swal.fire({ icon:'error', title:'Not Found', text:'Resident account not found.' });</script>";
+                return;
+            }
+
+            $email   = $resident['email'] ?? null;
+            $contact = $resident['contact'] ?? '';
+            $address = trim(implode(', ', array_filter([
+                $resident['houseno']   ?? '',
+                $resident['street']    ?? '',
+                $resident['brgy']      ?? '',
+                $resident['municipal'] ?? ''
+            ])));
+
+            $chk = $connection->prepare("SELECT id_user FROM tbl_user WHERE email=?");
+            $chk->execute([$email]);
+            if ($chk->rowCount() > 0) {
+                echo "<script>Swal.fire({ icon:'warning', title:'Already a Teacher', text:'This account has already been promoted.' });</script>";
+                return;
+            }
+
+            $stmt2 = $connection->prepare("INSERT INTO tbl_user
+                (`email`,`password`,`lname`,`fname`,`mi`,`age`,`sex`,
+                 `address`,`contact`,`position`,`role`,`addedby`,
+                 `subject_handled`,`adviser_grade`,`subject_grades`)
+                VALUES (?,?,?,?,?,?,?,?,?,?,'staff','Admin-Promoted',?,?,?)");
+            $stmt2->execute([
+                $email, $resident['password'],
+                $resident['lname'], $resident['fname'], $resident['mi'],
+                $resident['age'],   $resident['sex'],   $address, $contact,
+                $position, $subject_handled, $adviser_grade, $subject_grades
+            ]);
+
+            $del = $connection->prepare("DELETE FROM tbl_resident WHERE id_resident=?");
+            $del->execute([$id_resident]);
+
+            echo "<script>
+                Swal.fire({
+                    icon: 'success', title: 'Promoted!',
+                    html: 'Account is now a Teacher/Staff.<br>Their student account has been removed.<br>They can log in immediately using their existing password.',
+                    confirmButtonColor: '#155724'
+                }).then(() => { window.location.reload(); });
+            </script>";
+        }
+
+    // ==================== QUERIES ====================
+
+        public function view_staff() {
+            $connection = $this->openConn();
+            $stmt = $connection->prepare("SELECT * FROM tbl_user WHERE role='staff' ORDER BY lname ASC, fname ASC");
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        public function get_single_staff($id_user) {
+            $connection = $this->openConn();
+            $stmt = $connection->prepare("SELECT * FROM tbl_user WHERE id_user=?");
+            $stmt->execute([(int)$id_user]);
+            return $stmt->fetch(PDO::FETCH_ASSOC) ?: false;
+        }
+
+        public function check_staff_email($email) {
+            $connection = $this->openConn();
+            $stmt = $connection->prepare("SELECT id_user FROM tbl_user WHERE email=?");
+            $stmt->execute([$email]);
+            return $stmt->rowCount();
         }
 
         public function count_staff() {
             $connection = $this->openConn();
-
-            $stmt = $connection->prepare("SELECT COUNT(*) from tbl_user");
+            $stmt = $connection->prepare("SELECT COUNT(*) FROM tbl_user WHERE role='staff'");
             $stmt->execute();
-            $staffcount = $stmt->fetchColumn();
-
-            return $staffcount;
+            return $stmt->fetchColumn();
         }
 
         public function count_mstaff() {
             $connection = $this->openConn();
-
-            $stmt = $connection->prepare("SELECT COUNT(*) from tbl_user where sex = 'male'");
+            $stmt = $connection->prepare("SELECT COUNT(*) FROM tbl_user WHERE role='staff' AND sex='Male'");
             $stmt->execute();
-            $staffcount = $stmt->fetchColumn();
-
-            return $staffcount;
+            return $stmt->fetchColumn();
         }
 
         public function count_fstaff() {
             $connection = $this->openConn();
-
-            $stmt = $connection->prepare("SELECT COUNT(*) from tbl_user where sex = 'female'");
+            $stmt = $connection->prepare("SELECT COUNT(*) FROM tbl_user WHERE role='staff' AND sex='Female'");
             $stmt->execute();
-            $staffcount = $stmt->fetchColumn();
-
-            return $staffcount;
+            return $stmt->fetchColumn();
         }
 
+    } // end class StaffClass
 
-        //===================================== SCOPE CHANGED FEATURES =======================================
-
-        public function view_staff_male(){
-            $connection = $this->openConn();
-            $stmt = $connection->prepare("SELECT * from tbl_user WHERE `sex` = 'Male'");
-            $stmt->execute();   
-            $view = $stmt->fetchAll();
-            return $view;
-        }
-    
-        public function view_staff_female(){
-            $connection = $this->openConn();
-            $stmt = $connection->prepare("SELECT * from tbl_user WHERE `sex` = 'Female'");
-            $stmt->execute();
-            $view = $stmt->fetchAll();
-            return $view;
-        }
-
-
-
-
-
-    }
-    $staffbmis = new StaffClass();
+    $staffbmis    = new StaffClass();
+    $staffeusebia = $staffbmis;
 ?>

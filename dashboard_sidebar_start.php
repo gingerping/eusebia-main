@@ -143,6 +143,16 @@
                 <a class="nav-link" href="admn_archive.php">
                     <span>Archive</span></a>
             </li>
+
+            <hr class="sidebar-divider">
+            <div class="sidebar-heading">
+                Administration
+            </div>
+
+            <li class="nav-item">
+                <a class="nav-link" href="admn_staff_crud.php">
+                    <span>Teachers &amp; Advisers</span></a>
+            </li>
             <!-- Sidebar Toggler (Sidebar) -->
             <div class="text-center d-none d-md-inline">
                 <button class="rounded-circle border-0" id="sidebarToggle"></button>

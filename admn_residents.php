@@ -1,9 +1,12 @@
 <?php
     error_reporting(E_ALL ^ E_WARNING);
-    ini_set('display_errors', 0);
+    ini_set('display_errors', 1);
     require('classes/resident.class.php');
     $userdetails = $eusebia->get_userdata();
     $eusebia->validate_admin();
+
+    require_once('classes/staff.class.php');
+    $staffeusebia->promote_resident_to_staff();
 
     // Fetch all registered resident accounts
     $connection = $eusebia->openConn();
@@ -123,6 +126,7 @@
                             <th>Birthdate</th>
                             <th>Email / Phone</th>
                             <th>Registered By</th>
+                            <th style="width:120px;">Promote</th>
                         </tr>
                     </thead>
                     <tbody id="residentTbody">
@@ -149,6 +153,26 @@
                             <td><?= $bdate ?></td>
                             <td><?= htmlspecialchars($contact) ?></td>
                             <td><?= htmlspecialchars($r['addedby'] ?? '—') ?></td>
+                            <td class="text-center">
+                                <?php
+                                // Check if already a teacher
+                                $chk = $connection->prepare("SELECT id_user FROM tbl_user WHERE email=? OR (email IS NULL AND contact=?)");
+                                $chk->execute([$r['email'], $r['contact']]);
+                                $already = $chk->rowCount() > 0;
+                                ?>
+                                <?php if ($already): ?>
+                                    <span class="badge badge-success"><i class="fas fa-check mr-1"></i>Teacher</span>
+                                <?php else: ?>
+                                <button class="btn btn-outline-success btn-sm py-0 px-2 promote-btn"
+                                    data-id="<?= $r['id_resident'] ?>"
+                                    data-name="<?= htmlspecialchars(strtoupper($r['lname']).', '.ucwords(strtolower($r['fname']))) ?>"
+                                    data-email="<?= htmlspecialchars($r['email'] ?? '') ?>"
+                                    data-contact="<?= htmlspecialchars($r['contact']) ?>"
+                                    data-toggle="modal" data-target="#promoteModal">
+                                    <i class="fas fa-chalkboard-teacher"></i> Promote
+                                </button>
+                                <?php endif; ?>
+                            </td>
                         </tr>
                         <?php endforeach; ?>
                         <?php endif; ?>
@@ -163,6 +187,86 @@
     </div>
 
 </div><!-- /.container-fluid -->
+
+<!-- ======== PROMOTE MODAL ======== -->
+<div class="modal fade" id="promoteModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-md" role="document">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background:linear-gradient(135deg,#155724,#1e7e34);">
+                <h5 class="modal-title"><i class="fas fa-chalkboard-teacher mr-2"></i>Promote to Teacher / Staff</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <form method="post">
+                <div class="modal-body">
+                    <div class="alert alert-success py-2 mb-3">
+                        <i class="fas fa-user mr-1"></i>
+                        Promoting: <strong id="promote_name_display"></strong>
+                    </div>
+                    <input type="hidden" name="id_resident" id="promote_id_resident">
+
+                    <div class="form-group">
+                        <label class="font-weight-bold small">Position <span class="text-danger">*</span></label>
+                        <select class="form-control form-control-sm" name="position" required>
+                            <option value="">— Select Position —</option>
+                            <option value="Teacher I">Teacher I</option>
+                            <option value="Teacher II">Teacher II</option>
+                            <option value="Teacher III">Teacher III</option>
+                            <option value="Master Teacher I">Master Teacher I</option>
+                            <option value="Master Teacher II">Master Teacher II</option>
+                            <option value="Head Teacher">Head Teacher</option>
+                            <option value="Registrar">Registrar</option>
+                            <option value="Guidance Counselor">Guidance Counselor</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="font-weight-bold small">Subject(s) Handled</label>
+                        <input type="text" class="form-control form-control-sm" name="subject_handled" placeholder="e.g. Math, Science, English">
+                        <small class="text-muted">Separate multiple subjects with commas</small>
+                    </div>
+
+                    <div class="form-group mb-0">
+                        <label class="font-weight-bold small">Assign as Adviser of Grade/Section</label>
+                        <select class="form-control form-control-sm" name="adviser_grade">
+                            <option value="">— Not an Adviser —</option>
+                            <option value="Grade 7">Grade 7</option>
+                            <option value="Grade 8">Grade 8</option>
+                            <option value="Grade 9">Grade 9</option>
+                            <option value="Grade 10">Grade 10</option>
+                            <option value="Grade 11 - STEM">Grade 11 - STEM</option>
+                            <option value="Grade 11 - ABM">Grade 11 - ABM</option>
+                            <option value="Grade 11 - GAS">Grade 11 - GAS</option>
+                            <option value="Grade 11 - TVL-ICT">Grade 11 - TVL-ICT</option>
+                            <option value="Grade 11 - TVL-HE">Grade 11 - TVL-HE</option>
+                            <option value="Grade 12 - STEM">Grade 12 - STEM</option>
+                            <option value="Grade 12 - ABM">Grade 12 - ABM</option>
+                            <option value="Grade 12 - GAS">Grade 12 - GAS</option>
+                            <option value="Grade 12 - TVL-ICT">Grade 12 - TVL-ICT</option>
+                            <option value="Grade 12 - TVL-HE">Grade 12 - TVL-HE</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                    <button type="submit" name="promote_resident" class="btn btn-success btn-sm">
+                        <i class="fas fa-user-check mr-1"></i> Confirm Promotion
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="vendor/jquery/jquery.min.js"></script>
+<script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script>
+// Populate promote modal
+$(document).on('click', '.promote-btn', function() {
+    const b = $(this);
+    $('#promote_id_resident').val(b.data('id'));
+    $('#promote_name_display').text(b.data('name'));
+});
+</script>
 
 <script>
 // ── Select All ──────────────────────────────────────────────────────────────

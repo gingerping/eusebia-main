@@ -11,7 +11,7 @@ class EUSEBIAClass {
     protected $con;
 
 
-   public function show_404()
+    public function show_404()
     {
         http_response_code(404);
         echo "Page is currently unavailable";
@@ -142,7 +142,14 @@ public function get_userdata() {
             "houseno" => $array['houseno'],
             "street" => $array['street'],
             "brgy" => $array['brgy'],
-            "municipal" => $array['municipal']
+            "municipal" => $array['municipal'],
+            // Staff/Teacher fields (null-safe for residents/admins)
+            "lname"           => $array['lname']            ?? $array['surname']   ?? '',
+            "fname"           => $array['fname']            ?? $array['firstname'] ?? '',
+            "position"        => $array['position']         ?? '',
+            "subject_handled" => $array['subject_handled']  ?? '',
+            "adviser_grade"   => $array['adviser_grade']    ?? '',
+            "subject_grades"  => $array['subject_grades']   ?? ''
         );
         return $_SESSION['userdata'];
     }
