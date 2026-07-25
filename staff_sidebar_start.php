@@ -103,11 +103,7 @@
 
         <hr class="sidebar-divider">
         <div class="sidebar-heading">Account</div>
-        <li class="nav-item">
-            <a class="nav-link" href="staff_changepass.php">
-                <i class="fas fa-fw fa-key"></i><span>Change Password</span>
-            </a>
-        </li>
+        
         <li class="nav-item">
                         <a class="nav-link" href="logout.php">
                             <i class="fas fa-sign-out-alt mr-1"></i> Logout

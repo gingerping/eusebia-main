@@ -1,10 +1,12 @@
 <?php 
 
+require_once __DIR__ . '/DocumentAI.php';
+
 class EUSEBIAClass {
 
 //------------------------------------------ DATABASE CONNECTION ----------------------------------------------------
     
-    protected $server = "mysql:host=localhost;dbname=eusebia";
+    protected $server = "mysql:host=localhost;dbname=jean_files";
     protected $user = "root";
     protected $pass = "";
     protected $options = array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC);
@@ -32,6 +34,55 @@ class EUSEBIAClass {
     //eto yung nag c close ng connection ng db
     public function closeConn() {
         $this->con = null;
+    }
+
+    // Fetches individual pending enrollees (per student) across all grade levels, for a
+    // Facebook-style notification dropdown. Skips tables that don't yet have the
+    // enrollment_status column (it's added lazily the first time an admin approves/
+    // rejects a student in that grade), rather than erroring out.
+    public function get_pending_enrollees($limit_per_grade = 15) {
+        $tables = [
+            'tbl_seven'  => ['label' => 'Grade 7',  'link' => 'admn_seven.php',  'pk' => 'id_seven'],
+            'tbl_eight'  => ['label' => 'Grade 8',  'link' => 'admn_eight.php',  'pk' => 'id_eight'],
+            'tbl_nine'   => ['label' => 'Grade 9',  'link' => 'admn_nine.php',   'pk' => 'id_nine'],
+            'tbl_ten'    => ['label' => 'Grade 10', 'link' => 'admn_ten.php',    'pk' => 'id_ten'],
+            'tbl_eleven' => ['label' => 'Grade 11', 'link' => 'admn_eleven.php', 'pk' => 'id_eleven'],
+            'tbl_twelve' => ['label' => 'Grade 12', 'link' => 'admn_twelve.php', 'pk' => 'id_twelve'],
+        ];
+
+        $connection = $this->openConn();
+        $items = [];
+
+        foreach ($tables as $table => $info) {
+            try {
+                $stmt = $connection->prepare(
+                    "SELECT `{$info['pk']}` AS id, fname, lname, sy FROM `$table`
+                     WHERE LOWER(enrollment_status) = 'pending'
+                     AND (is_archived = 0 OR is_archived IS NULL)
+                     ORDER BY `{$info['pk']}` DESC
+                     LIMIT " . (int) $limit_per_grade
+                );
+                $stmt->execute();
+                $rows = $stmt->fetchAll();
+            } catch (PDOException $e) {
+                // Column/table not ready yet on this install — treat as no pending records.
+                $rows = [];
+            }
+
+            foreach ($rows as $row) {
+                $items[] = [
+                    'id'    => $row['id'],
+                    'name'  => trim(($row['fname'] ?? '') . ' ' . ($row['lname'] ?? '')),
+                    'grade' => $info['label'],
+                    'sy'    => $row['sy'] ?? '',
+                    'link'  => $info['link'],
+                ];
+            }
+        }
+
+        $this->closeConn();
+
+        return ['total' => count($items), 'items' => $items];
     }
 
 
@@ -66,15 +117,15 @@ if($user && password_verify($password_input, $user['password'])) {
             exit(); 
         }
 
-        // 3. Check RESIDENT - Check EMAIL OR PHONE_NUMBER
+        // 3. Check STUDENT - Check EMAIL OR PHONE_NUMBER
         // We only use phone_number here because we are sure this table has it.
-        $stmt = $connection->prepare("SELECT * FROM tbl_resident WHERE email = ? OR phone_number = ?");
+        $stmt = $connection->prepare("SELECT * FROM tbl_student WHERE email = ? OR phone_number = ?");
         $stmt->execute([$identity, $identity]);
         $user = $stmt->fetch();
 
         if($user && password_verify($password_input, $user['password'])) {
             $this->set_userdata($user);
-            header('Location: resident_homepage.php');
+            header('Location: student_homepage.php');
             exit();
         }
 
@@ -110,6 +161,77 @@ public function get_userdata() {
     return null;
 }
 
+    //------------------------------------------ STUDENT NOTIFICATIONS ----------------------------------------------------
+    // Facebook-style in-app notifications for enrollment / promotion approve-reject actions.
+
+    private function ensure_notifications_table($connection) {
+        try {
+            $connection->exec("CREATE TABLE IF NOT EXISTS tbl_notifications (
+                id_notification INT AUTO_INCREMENT PRIMARY KEY,
+                id_student INT NOT NULL,
+                title VARCHAR(150) NOT NULL,
+                message TEXT NOT NULL,
+                type VARCHAR(20) NOT NULL DEFAULT 'info',
+                is_read TINYINT(1) NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX (id_student),
+                INDEX (is_read)
+            )");
+        } catch (PDOException $e) {}
+    }
+
+    // Creates a notification for a student. $type is 'approved', 'rejected', or 'info'.
+    public function add_notification($id_student, $title, $message, $type = 'info') {
+        if (empty($id_student)) return;
+        $connection = $this->openConn();
+        $this->ensure_notifications_table($connection);
+        $stmt = $connection->prepare(
+            "INSERT INTO tbl_notifications (id_student, title, message, type) VALUES (?, ?, ?, ?)"
+        );
+        $stmt->execute([$id_student, $title, $message, $type]);
+        $this->closeConn();
+    }
+
+    // Most recent notifications for the bell dropdown.
+    public function get_notifications($id_student, $limit = 10) {
+        if (empty($id_student)) return [];
+        $connection = $this->openConn();
+        $this->ensure_notifications_table($connection);
+        $stmt = $connection->prepare(
+            "SELECT * FROM tbl_notifications WHERE id_student = ? ORDER BY created_at DESC LIMIT " . (int)$limit
+        );
+        $stmt->execute([$id_student]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $this->closeConn();
+        return $rows;
+    }
+
+    // Unread count for the little badge on the bell icon.
+    public function get_unread_notification_count($id_student) {
+        if (empty($id_student)) return 0;
+        $connection = $this->openConn();
+        $this->ensure_notifications_table($connection);
+        $stmt = $connection->prepare(
+            "SELECT COUNT(*) FROM tbl_notifications WHERE id_student = ? AND is_read = 0"
+        );
+        $stmt->execute([$id_student]);
+        $count = (int)$stmt->fetchColumn();
+        $this->closeConn();
+        return $count;
+    }
+
+    // Marks all of a student's notifications as read (called when the bell dropdown is opened).
+    public function mark_all_notifications_read($id_student) {
+        if (empty($id_student)) return;
+        $connection = $this->openConn();
+        $this->ensure_notifications_table($connection);
+        $stmt = $connection->prepare(
+            "UPDATE tbl_notifications SET is_read = 1 WHERE id_student = ? AND is_read = 0"
+        );
+        $stmt->execute([$id_student]);
+        $this->closeConn();
+    }
+
     //eto yung condition na mag s set userdata na gagamiting pagkakakilala sayo sa buong session kapag nag login in ka
     public function set_userdata($array) {
 
@@ -119,31 +241,34 @@ public function get_userdata() {
         }
 
         //eto si userdata yung mag s set ng name mo tsaka role/access habang ikaw ay nag b browse at gumagamit ng store management
+        // Every field is read with ?? '' because the source row can come from tbl_admin,
+        // tbl_user (staff), or tbl_student — each table has a different set of columns,
+        // so reading a missing key directly would throw "Undefined array key" warnings.
         $_SESSION['userdata'] = array(
-            "id_admin" => $array['id_admin'],
-            "id_resident" => $array['id_resident'],
-            "id_user" => $array['id_user'],
-            "emailadd" => $array['email'],
-            "password" => $array['password'],
+            "id_admin" => $array['id_admin'] ?? null,
+            "id_student" => $array['id_student'] ?? null,
+            "id_user" => $array['id_user'] ?? null,
+            "emailadd" => $array['email'] ?? '',
+            "password" => $array['password'] ?? '',
             //"fullname" => $array['lname']. " ".$array['fname']. " ".$array['mi'],
-            "surname" => $array['lname'],
-            "firstname" => $array['fname'],
-            "mname" => $array['mi'],
-            "age" => $array['age'],
-            "sex" => $array['sex'],
-            "status" => $array['status'],
-            "address" => $array['address'],
-            "contact" => $array['contact'],
-            "bdate" => $array['bdate'],
-            "bplace" => $array['bplace'],
-            "nationality" => $array['nationality'],
-            "family_role" => $array['family_role'],
-            "role" => $array['role'],
-            "houseno" => $array['houseno'],
-            "street" => $array['street'],
-            "brgy" => $array['brgy'],
-            "municipal" => $array['municipal'],
-            // Staff/Teacher fields (null-safe for residents/admins)
+            "surname" => $array['lname'] ?? '',
+            "firstname" => $array['fname'] ?? '',
+            "mname" => $array['mi'] ?? '',
+            "age" => $array['age'] ?? '',
+            "sex" => $array['sex'] ?? '',
+            "status" => $array['status'] ?? '',
+            "address" => $array['address'] ?? '',
+            "contact" => $array['contact'] ?? '',
+            "bdate" => $array['bdate'] ?? '',
+            "bplace" => $array['bplace'] ?? '',
+            "nationality" => $array['nationality'] ?? '',
+            "family_role" => $array['family_role'] ?? '',
+            "role" => $array['role'] ?? '',
+            "houseno" => $array['houseno'] ?? '',
+            "street" => $array['street'] ?? '',
+            "brgy" => $array['brgy'] ?? '',
+            "municipal" => $array['municipal'] ?? '',
+            // Staff/Teacher fields (null-safe for students/admins)
             "lname"           => $array['lname']            ?? $array['surname']   ?? '',
             "fname"           => $array['fname']            ?? $array['firstname'] ?? '',
             "position"        => $array['position']         ?? '',
@@ -309,6 +434,34 @@ public function get_userdata() {
     //----------------------------------------- DOCUMENT PROCESSING FUNCTIONS -------------------------------------
     //-------------------------------------------------------------------------------------------------------------
 
+    /**
+     * Runs the AI document reviewer for one enrollment record and stores the
+     * result. Never throws — if the AI call fails (bad/missing key, host
+     * blocks outgoing requests, etc.) the enrollment submission still goes
+     * through; the stored result just records the failure so staff/the
+     * "Re-analyze" button can retry later.
+     */
+    public function run_ai_document_review($table, $idColumn, $recordId, array $relativeDocPaths, array $formData) {
+        try {
+            $connection = $this->openConn();
+
+            try { $connection->exec("ALTER TABLE `{$table}` ADD COLUMN ai_analysis LONGTEXT NULL DEFAULT NULL"); }
+            catch (PDOException $e) {}
+
+            if (empty($relativeDocPaths)) {
+                $result = ['success' => false, 'error' => 'No documents were uploaded.', 'analyzed_at' => date('Y-m-d H:i:s')];
+            } else {
+                $absPaths = array_map(function($p) { return __DIR__ . '/../' . $p; }, $relativeDocPaths);
+                $result = DocumentAI::analyze($absPaths, $formData);
+            }
+
+            $stmt = $connection->prepare("UPDATE `{$table}` SET ai_analysis = ? WHERE `{$idColumn}` = ?");
+            $stmt->execute([json_encode($result), $recordId]);
+        } catch (\Throwable $e) {
+            // Swallow — a broken AI review must never block or break enrollment.
+        }
+    }
+
 public function create_seven() {
     if(isset($_POST['create_seven'])) {
         $sy = $_POST['sy'] ?? '';
@@ -336,7 +489,7 @@ public function create_seven() {
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
         // Add this to link the record to the logged-in user
-        $id_resident = $_POST['id_resident'] ?? '';
+        $id_student = $_POST['id_student'] ?? '';
         $is_ip    = $_POST['is_ip']    ?? 'No';
         $ip_group = ($is_ip === 'Yes') ? ($_POST['ip_group'] ?? '') : '';
         $is_4ps   = $_POST['is_4ps']   ?? 'No';
@@ -389,12 +542,12 @@ public function create_seven() {
             }
         }
         
-        // I have added `id_resident` here so you know which user owns the enrollment
+        // I have added `id_student` here so you know which user owns the enrollment
         $query = "INSERT INTO tbl_seven (
             `sy`, `lrn`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, 
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, 
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, 
-            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`,
+            `lsa`, `lysc`, `school_id`, `id_student`, `documents`,
             `is_ip`, `ip_group`, `is_4ps`, `fourps_id`
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         
@@ -405,8 +558,20 @@ public function create_seven() {
             $sy, $lrn, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email, 
             $current_address, $perm_address, $ffname, $flname, $fmi, 
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc, 
-            $lsa, $lysc, $school_id, $id_resident, $documents_json,
+            $lsa, $lysc, $school_id, $id_student, $documents_json,
             $is_ip, $ip_group, $is_4ps, $fourps_id
+        ]);
+
+        $this->run_ai_document_review('tbl_seven', 'id_seven', $connection->lastInsertId(), $uploadedPaths, [
+            'Full Name'                => trim("$lname, $fname $mi"),
+            'Birthdate'                => $bdate,
+            'LRN'                      => $lrn,
+            'Last School Attended'     => $lsa,
+            'Last Grade Level Completed' => $lglc,
+            'Is 4Ps Beneficiary'       => $is_4ps,
+            '4Ps Household ID'         => $fourps_id,
+            'Is IP Member'             => $is_ip,
+            'IP Group'                 => $ip_group,
         ]);
  
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
@@ -432,18 +597,134 @@ public function create_seven() {
     }
 }
 
-public function get_single_seven($id_resident){
+/**
+ * Lets an admin manually add an enrollee straight into Grade 7-12, mirroring the
+ * public grade7.php-grade12.php forms, but WITHOUT requiring document uploads.
+ * Instead of files, the admin marks the requirements as Complete, or leaves a
+ * note describing what documents are still missing.
+ *
+ * $grade must be one of: seven, eight, nine, ten, eleven, twelve
+ */
+public function admin_add_enrollee($grade) {
+    if (!isset($_POST['admin_add_enrollee']) || ($_POST['grade_table'] ?? '') !== $grade) return;
 
-        $id_resident = $_GET['id_resident'];
+    $map = [
+        'seven'  => ['table' => 'tbl_seven',  'id' => 'id_seven',  'course' => false, 'prev' => false],
+        'eight'  => ['table' => 'tbl_eight',  'id' => 'id_eight',  'course' => false, 'prev' => true],
+        'nine'   => ['table' => 'tbl_nine',   'id' => 'id_nine',   'course' => true,  'prev' => true],
+        'ten'    => ['table' => 'tbl_ten',    'id' => 'id_ten',    'course' => true,  'prev' => true],
+        'eleven' => ['table' => 'tbl_eleven', 'id' => 'id_eleven', 'course' => true,  'prev' => true],
+        'twelve' => ['table' => 'tbl_twelve', 'id' => 'id_twelve', 'course' => true,  'prev' => true],
+    ];
+    if (!isset($map[$grade])) return;
+    $table     = $map[$grade]['table'];
+    $idCol     = $map[$grade]['id'];
+    $hasCourse = $map[$grade]['course'];
+    $hasPrev   = $map[$grade]['prev'];
+
+    $sy               = trim($_POST['sy'] ?? '');
+    $lrn              = trim($_POST['lrn'] ?? '');
+    $course           = trim($_POST['course'] ?? '');
+    $lname            = trim($_POST['lname'] ?? '');
+    $fname            = trim($_POST['fname'] ?? '');
+    $mi               = trim($_POST['mi'] ?? '');
+    $bdate            = $_POST['bdate'] ?? '';
+    $sex              = $_POST['sex'] ?? '';
+    $age              = $_POST['age'] ?? '';
+    $contact          = trim($_POST['contact'] ?? '');
+    $email            = trim($_POST['email'] ?? '');
+    $current_address  = trim($_POST['current_address'] ?? '');
+    $perm_address     = trim($_POST['perm_address'] ?? '');
+    $ffname           = trim($_POST['ffname'] ?? '');
+    $flname           = trim($_POST['flname'] ?? '');
+    $fmi              = trim($_POST['fmi'] ?? '');
+    $contact_f        = trim($_POST['contact_f'] ?? '');
+    $mlname           = trim($_POST['mlname'] ?? '');
+    $mfname           = trim($_POST['mfname'] ?? '');
+    $mmi              = trim($_POST['mmi'] ?? '');
+    $contact_m        = trim($_POST['contact_m'] ?? '');
+    $lglc             = trim($_POST['lglc'] ?? '');
+    $lsa              = trim($_POST['lsa'] ?? '');
+    $lysc             = trim($_POST['lysc'] ?? '');
+    $school_id        = trim($_POST['school_id'] ?? '');
+    $is_ip            = $_POST['is_ip']    ?? 'No';
+    $ip_group         = ($is_ip === 'Yes') ? trim($_POST['ip_group'] ?? '') : '';
+    $is_4ps           = $_POST['is_4ps']   ?? 'No';
+    $fourps_id        = ($is_4ps === 'Yes') ? trim($_POST['fourps_id'] ?? '') : '';
+    $prev_grade_table = trim($_POST['prev_grade_table'] ?? '');
+    $prev_grade_id    = (int)($_POST['prev_grade_id'] ?? 0);
+
+    // Requirements status instead of actual document uploads
+    $requirements_status = (($_POST['requirements_status'] ?? 'Complete') === 'Incomplete') ? 'Incomplete' : 'Complete';
+    $missing_docs_note   = $requirements_status === 'Incomplete' ? trim($_POST['missing_docs_note'] ?? '') : null;
+    $documents_note_json = json_encode(['admin_marked' => $requirements_status, 'note' => $missing_docs_note]);
+
+    $connection = $this->openConn();
+
+    // Make sure the tracking columns exist (safe no-op if they already do)
+    try { $connection->exec("ALTER TABLE `{$table}` ADD COLUMN `added_by_admin` TINYINT(1) NOT NULL DEFAULT 0"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE `{$table}` ADD COLUMN `requirements_status` VARCHAR(20) NOT NULL DEFAULT 'Complete'"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE `{$table}` ADD COLUMN `missing_docs_note` TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE `{$table}` ADD COLUMN `enrollment_status` VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
+    try { $connection->exec("ALTER TABLE `{$table}` ADD COLUMN `reject_reason` TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
+
+    // LRN duplicate check (same rule as the public enrollment forms)
+    $student_type = trim($_POST['student_type'] ?? 'new');
+    if ($student_type === 'new') {
+        $lrn_tables = ['tbl_seven','tbl_eight','tbl_nine','tbl_ten','tbl_eleven','tbl_twelve'];
+        foreach ($lrn_tables as $_lrn_tbl) {
+            $lrn_stmt = $connection->prepare("SELECT COUNT(*) FROM `{$_lrn_tbl}` WHERE `lrn` = ? AND (is_archived = 0 OR is_archived IS NULL)");
+            $lrn_stmt->execute([$lrn]);
+            if ($lrn_stmt->fetchColumn() > 0) {
+                $_SESSION['swal'] = ['icon' => 'error', 'title' => 'LRN Already Registered', 'text' => 'LRN "' . $lrn . '" is already used by another enrollment.'];
+                header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? 'admn_dashboard.php'));
+                exit();
+            }
+        }
+    }
+
+    $cols = ['sy','lrn'];
+    $vals = [$sy, $lrn];
+    if ($hasCourse) { $cols[] = 'course'; $vals[] = $course; }
+    $cols = array_merge($cols, ['lname','fname','mi','bdate','sex','age','contact','email',
+        'current_address','perm_address','ffname','flname','fmi','contact_f','mlname','mfname',
+        'mmi','contact_m','lglc','lsa','lysc','school_id','id_student','documents',
+        'is_ip','ip_group','is_4ps','fourps_id']);
+    $vals = array_merge($vals, [$lname,$fname,$mi,$bdate,$sex,$age,$contact,$email,
+        $current_address,$perm_address,$ffname,$flname,$fmi,$contact_f,$mlname,$mfname,
+        $mmi,$contact_m,$lglc,$lsa,$lysc,$school_id, 0, $documents_note_json,
+        $is_ip,$ip_group,$is_4ps,$fourps_id]);
+    if ($hasPrev) { $cols = array_merge($cols, ['prev_grade_table','prev_grade_id']); $vals = array_merge($vals, [$prev_grade_table, $prev_grade_id]); }
+    $cols = array_merge($cols, ['added_by_admin','requirements_status','missing_docs_note']);
+    $vals = array_merge($vals, [1, $requirements_status, $missing_docs_note]);
+
+    $colSql = '`' . implode('`,`', $cols) . '`';
+    $qMarks = implode(',', array_fill(0, count($vals), '?'));
+    $stmt = $connection->prepare("INSERT INTO `{$table}` ({$colSql}) VALUES ({$qMarks})");
+    $stmt->execute($vals);
+
+    $_SESSION['swal'] = [
+        'icon'  => 'success',
+        'title' => 'Student Added',
+        'text'  => trim("$fname $lname") . ' was enrolled successfully' .
+                   ($requirements_status === 'Incomplete' ? ' (requirements marked incomplete).' : '.'),
+    ];
+    header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? 'admn_dashboard.php'));
+    exit();
+}
+
+public function get_single_seven($id_student){
+
+        $id_student = $_GET['id_student'];
         
         $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * FROM tbl_seven where id_resident = ?");
-        $stmt->execute([$id_resident]);
-        $resident = $stmt->fetch();
+        $stmt = $connection->prepare("SELECT * FROM tbl_seven where id_student = ?");
+        $stmt->execute([$id_student]);
+        $student = $stmt->fetch();
         $total = $stmt->rowCount();
 
         if($total > 0 )  {
-            return $resident;
+            return $student;
         }
         else{
             return false;
@@ -513,13 +794,14 @@ public function approve_seven() {
     try { $connection->exec("ALTER TABLE tbl_seven ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); }
     catch (PDOException $e) {}
  
-    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_seven WHERE id_seven = ?");
+    $fetch = $connection->prepare("SELECT id_student, email, fname, lname FROM tbl_seven WHERE id_seven = ?");
     $fetch->execute([$id_seven]);
     $student = $fetch->fetch();
  
     $update = $connection->prepare("UPDATE tbl_seven SET enrollment_status = 'Approved', reject_reason = NULL WHERE id_seven = ?");
     $update->execute([$id_seven]);
     $this->closeConn();
+    $this->add_notification($student['id_student'] ?? null, 'Grade 7 Enrollment Approved', 'Your Grade 7 enrollment has been approved. Please visit the school to complete your enrollment requirements.', 'approved');
  
     $email = $student['email'] ?? '';
     $name  = trim(($student['fname'] ?? '') . ' ' . ($student['lname'] ?? ''));
@@ -575,13 +857,14 @@ public function reject_seven() {
     try { $connection->exec("ALTER TABLE tbl_seven ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); }
     catch (PDOException $e) {}
  
-    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_seven WHERE id_seven = ?");
+    $fetch = $connection->prepare("SELECT id_student, email, fname, lname FROM tbl_seven WHERE id_seven = ?");
     $fetch->execute([$id_seven]);
     $student = $fetch->fetch();
  
     $update = $connection->prepare("UPDATE tbl_seven SET enrollment_status = 'Rejected', reject_reason = ? WHERE id_seven = ?");
     $update->execute([$reject_reason, $id_seven]);
     $this->closeConn();
+    $this->add_notification($student['id_student'] ?? null, 'Grade 7 Enrollment Rejected', 'Your Grade 7 enrollment was not approved.' . (!empty($reject_reason) ? ' Reason: ' . $reject_reason : ''), 'rejected');
  
     $email = $student['email'] ?? '';
     $name  = trim(($student['fname'] ?? '') . ' ' . ($student['lname'] ?? ''));
@@ -720,7 +1003,7 @@ public function create_eight() {
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
         // Add this to link the record to the logged-in user
-        $id_resident = $_POST['id_resident'] ?? '';
+        $id_student = $_POST['id_student'] ?? '';
         $is_ip    = $_POST['is_ip']    ?? 'No';
         $ip_group = ($is_ip === 'Yes') ? ($_POST['ip_group'] ?? '') : '';
         $is_4ps   = $_POST['is_4ps']   ?? 'No';
@@ -775,13 +1058,13 @@ public function create_eight() {
             }
         }
         
-        // I have added `id_resident` here so you know which user owns the enrollment
-        // I have added `id_resident` here so you know which user owns the enrollment
+        // I have added `id_student` here so you know which user owns the enrollment
+        // I have added `id_student` here so you know which user owns the enrollment
         $query = "INSERT INTO tbl_eight (
             `sy`, `lrn`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, 
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, 
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, 
-            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
+            `lsa`, `lysc`, `school_id`, `id_student`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         
         $stmt = $connection->prepare($query);
@@ -791,7 +1074,19 @@ public function create_eight() {
             $sy, $lrn, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email, 
             $current_address, $perm_address, $ffname, $flname, $fmi, 
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc, 
-            $lsa, $lysc, $school_id, $id_resident, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
+            $lsa, $lysc, $school_id, $id_student, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
+        ]);
+
+        $this->run_ai_document_review('tbl_eight', 'id_eight', $connection->lastInsertId(), $uploadedPaths, [
+            'Full Name'                => trim("$lname, $fname $mi"),
+            'Birthdate'                => $bdate,
+            'LRN'                      => $lrn,
+            'Last School Attended'     => $lsa,
+            'Last Grade Level Completed' => $lglc,
+            'Is 4Ps Beneficiary'       => $is_4ps,
+            '4Ps Household ID'         => $fourps_id,
+            'Is IP Member'             => $is_ip,
+            'IP Group'                 => $ip_group,
         ]);
  
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
@@ -816,17 +1111,17 @@ public function create_eight() {
         exit(); 
     }
 }
-public function get_single_eight($id_resident){
-    $id_resident = $_GET['id_resident'];
+public function get_single_eight($id_student){
+    $id_student = $_GET['id_student'];
     
     $connection = $this->openConn();
-    $stmt = $connection->prepare("SELECT * FROM tbl_eight WHERE id_resident = ?");
-    $stmt->execute([$id_resident]);
-    $resident = $stmt->fetch();
+    $stmt = $connection->prepare("SELECT * FROM tbl_eight WHERE id_student = ?");
+    $stmt->execute([$id_student]);
+    $student = $stmt->fetch();
     $total = $stmt->rowCount();
 
     if($total > 0 )  {
-        return $resident;
+        return $student;
     }
     else {
         return false;
@@ -859,7 +1154,7 @@ public function approve_eight() {
     $connection = $this->openConn();
     try { $connection->exec("ALTER TABLE tbl_eight ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
     try { $connection->exec("ALTER TABLE tbl_eight ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
-    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_eight WHERE id_eight = ?");
+    $fetch = $connection->prepare("SELECT id_student, email, fname, lname FROM tbl_eight WHERE id_eight = ?");
     $fetch->execute([$id_eight]);
     $student = $fetch->fetch();
     $update = $connection->prepare("UPDATE tbl_eight SET enrollment_status = 'Approved', reject_reason = NULL WHERE id_eight = ?");
@@ -893,6 +1188,7 @@ public function approve_eight() {
         $delete_stmt->execute([$prev_pk]);
     }
     $this->closeConn();
+    $this->add_notification($student['id_student'] ?? null, 'Grade 8 Enrollment Approved', 'Your Grade 8 enrollment has been approved. Please visit the school to complete your enrollment requirements.', 'approved');
     $email = $student['email'] ?? '';
     $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
     if (!empty($email)) {
@@ -933,12 +1229,13 @@ public function reject_eight() {
     $connection = $this->openConn();
     try { $connection->exec("ALTER TABLE tbl_eight ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
     try { $connection->exec("ALTER TABLE tbl_eight ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
-    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_eight WHERE id_eight = ?");
+    $fetch = $connection->prepare("SELECT id_student, email, fname, lname FROM tbl_eight WHERE id_eight = ?");
     $fetch->execute([$id_eight]);
     $student = $fetch->fetch();
     $update = $connection->prepare("UPDATE tbl_eight SET enrollment_status = 'Rejected', reject_reason = ? WHERE id_eight = ?");
     $update->execute([$reject_reason, $id_eight]);
     $this->closeConn();
+    $this->add_notification($student['id_student'] ?? null, 'Grade 8 Enrollment Rejected', 'Your Grade 8 enrollment was not approved.' . (!empty($reject_reason) ? ' Reason: ' . $reject_reason : ''), 'rejected');
     $email = $student['email'] ?? '';
     $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
     if (!empty($email)) {
@@ -1065,7 +1362,7 @@ public function create_nine() {
         $lsa = $_POST['lsa'] ?? '';
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
-        $id_resident = $_POST['id_resident'] ?? '';
+        $id_student = $_POST['id_student'] ?? '';
         $prev_grade_table = trim($_POST['prev_grade_table'] ?? '');
         $prev_grade_id    = (int)($_POST['prev_grade_id']    ?? 0);
         $is_ip    = $_POST['is_ip']    ?? 'No';
@@ -1127,7 +1424,7 @@ public function create_nine() {
             `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`,
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`,
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`,
-            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
+            `lsa`, `lysc`, `school_id`, `id_student`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $stmt = $connection->prepare($query);
@@ -1135,7 +1432,20 @@ public function create_nine() {
             $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email,
             $current_address, $perm_address, $ffname, $flname, $fmi,
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc,
-            $lsa, $lysc, $school_id, $id_resident, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
+            $lsa, $lysc, $school_id, $id_student, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
+        ]);
+
+        $this->run_ai_document_review('tbl_nine', 'id_nine', $connection->lastInsertId(), $uploadedPaths, [
+            'Full Name'                => trim("$lname, $fname $mi"),
+            'Birthdate'                => $bdate,
+            'LRN'                      => $lrn,
+            'Course/Strand'            => $course,
+            'Last School Attended'     => $lsa,
+            'Last Grade Level Completed' => $lglc,
+            'Is 4Ps Beneficiary'       => $is_4ps,
+            '4Ps Household ID'         => $fourps_id,
+            'Is IP Member'             => $is_ip,
+            'IP Group'                 => $ip_group,
         ]);
 
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
@@ -1160,14 +1470,14 @@ public function create_nine() {
         exit();
     }
 }
-    public function get_single_nine($id_resident){
+    public function get_single_nine($id_student){
         // Removed the $_GET overwrite so it uses the passed ID correctly
         $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * FROM tbl_nine WHERE id_resident = ?");
-        $stmt->execute([$id_resident]);
-        $resident = $stmt->fetch();
+        $stmt = $connection->prepare("SELECT * FROM tbl_nine WHERE id_student = ?");
+        $stmt->execute([$id_student]);
+        $student = $stmt->fetch();
 
-        return $resident ?: false;
+        return $student ?: false;
     }
 
     public function view_nine(){ 
@@ -1197,7 +1507,7 @@ public function approve_nine() {
     $connection = $this->openConn();
     try { $connection->exec("ALTER TABLE tbl_nine ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
     try { $connection->exec("ALTER TABLE tbl_nine ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
-    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_nine WHERE id_nine = ?");
+    $fetch = $connection->prepare("SELECT id_student, email, fname, lname FROM tbl_nine WHERE id_nine = ?");
     $fetch->execute([$id_nine]);
     $student = $fetch->fetch();
     $update = $connection->prepare("UPDATE tbl_nine SET enrollment_status = 'Approved', reject_reason = NULL WHERE id_nine = ?");
@@ -1231,6 +1541,7 @@ public function approve_nine() {
     }
 
     $this->closeConn();
+    $this->add_notification($student['id_student'] ?? null, 'Grade 9 Enrollment Approved', 'Your Grade 9 enrollment has been approved. Please visit the school to complete your enrollment requirements.', 'approved');
     $email = $student['email'] ?? '';
     $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
     if (!empty($email)) {
@@ -1271,12 +1582,13 @@ public function reject_nine() {
     $connection = $this->openConn();
     try { $connection->exec("ALTER TABLE tbl_nine ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
     try { $connection->exec("ALTER TABLE tbl_nine ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
-    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_nine WHERE id_nine = ?");
+    $fetch = $connection->prepare("SELECT id_student, email, fname, lname FROM tbl_nine WHERE id_nine = ?");
     $fetch->execute([$id_nine]);
     $student = $fetch->fetch();
     $update = $connection->prepare("UPDATE tbl_nine SET enrollment_status = 'Rejected', reject_reason = ? WHERE id_nine = ?");
     $update->execute([$reject_reason, $id_nine]);
     $this->closeConn();
+    $this->add_notification($student['id_student'] ?? null, 'Grade 9 Enrollment Rejected', 'Your Grade 9 enrollment was not approved.' . (!empty($reject_reason) ? ' Reason: ' . $reject_reason : ''), 'rejected');
     $email = $student['email'] ?? '';
     $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
     if (!empty($email)) {
@@ -1406,7 +1718,7 @@ public function reject_nine() {
         $lsa = $_POST['lsa'] ?? '';
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
-        $id_resident = $_POST['id_resident'] ?? '';
+        $id_student = $_POST['id_student'] ?? '';
         $prev_grade_table = trim($_POST['prev_grade_table'] ?? '');
         $prev_grade_id    = (int)($_POST['prev_grade_id']    ?? 0);
         $is_ip    = $_POST['is_ip']    ?? 'No';
@@ -1467,7 +1779,7 @@ public function reject_nine() {
             `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`,
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`,
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`,
-            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
+            `lsa`, `lysc`, `school_id`, `id_student`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $stmt = $connection->prepare($query);
@@ -1475,7 +1787,20 @@ public function reject_nine() {
             $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email,
             $current_address, $perm_address, $ffname, $flname, $fmi,
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc,
-            $lsa, $lysc, $school_id, $id_resident, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
+            $lsa, $lysc, $school_id, $id_student, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
+        ]);
+
+        $this->run_ai_document_review('tbl_ten', 'id_ten', $connection->lastInsertId(), $uploadedPaths, [
+            'Full Name'                => trim("$lname, $fname $mi"),
+            'Birthdate'                => $bdate,
+            'LRN'                      => $lrn,
+            'Course/Strand'            => $course,
+            'Last School Attended'     => $lsa,
+            'Last Grade Level Completed' => $lglc,
+            'Is 4Ps Beneficiary'       => $is_4ps,
+            '4Ps Household ID'         => $fourps_id,
+            'Is IP Member'             => $is_ip,
+            'IP Group'                 => $ip_group,
         ]);
 
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
@@ -1501,14 +1826,14 @@ public function reject_nine() {
     }
 }
 
-    public function get_single_ten($id_resident){
+    public function get_single_ten($id_student){
         // Removed the $_GET overwrite so it uses the passed ID correctly
         $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * FROM tbl_ten WHERE id_resident = ?");
-        $stmt->execute([$id_resident]);
-        $resident = $stmt->fetch();
+        $stmt = $connection->prepare("SELECT * FROM tbl_ten WHERE id_student = ?");
+        $stmt->execute([$id_student]);
+        $student = $stmt->fetch();
 
-        return $resident ?: false;
+        return $student ?: false;
     }
 
     public function view_ten(){ 
@@ -1538,7 +1863,7 @@ public function approve_ten() {
     $connection = $this->openConn();
     try { $connection->exec("ALTER TABLE tbl_ten ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
     try { $connection->exec("ALTER TABLE tbl_ten ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
-    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_ten WHERE id_ten = ?");
+    $fetch = $connection->prepare("SELECT id_student, email, fname, lname FROM tbl_ten WHERE id_ten = ?");
     $fetch->execute([$id_ten]);
     $student = $fetch->fetch();
     $update = $connection->prepare("UPDATE tbl_ten SET enrollment_status = 'Approved', reject_reason = NULL WHERE id_ten = ?");
@@ -1572,6 +1897,7 @@ public function approve_ten() {
     }
 
     $this->closeConn();
+    $this->add_notification($student['id_student'] ?? null, 'Grade 10 Enrollment Approved', 'Your Grade 10 enrollment has been approved. Please visit the school to complete your enrollment requirements.', 'approved');
     $email = $student['email'] ?? '';
     $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
     if (!empty($email)) {
@@ -1612,12 +1938,13 @@ public function reject_ten() {
     $connection = $this->openConn();
     try { $connection->exec("ALTER TABLE tbl_ten ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
     try { $connection->exec("ALTER TABLE tbl_ten ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
-    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_ten WHERE id_ten = ?");
+    $fetch = $connection->prepare("SELECT id_student, email, fname, lname FROM tbl_ten WHERE id_ten = ?");
     $fetch->execute([$id_ten]);
     $student = $fetch->fetch();
     $update = $connection->prepare("UPDATE tbl_ten SET enrollment_status = 'Rejected', reject_reason = ? WHERE id_ten = ?");
     $update->execute([$reject_reason, $id_ten]);
     $this->closeConn();
+    $this->add_notification($student['id_student'] ?? null, 'Grade 10 Enrollment Rejected', 'Your Grade 10 enrollment was not approved.' . (!empty($reject_reason) ? ' Reason: ' . $reject_reason : ''), 'rejected');
     $email = $student['email'] ?? '';
     $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
     if (!empty($email)) {
@@ -1747,7 +2074,7 @@ public function reject_ten() {
         $lsa = $_POST['lsa'] ?? '';
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
-        $id_resident = $_POST['id_resident'] ?? '';
+        $id_student = $_POST['id_student'] ?? '';
         $prev_grade_table = trim($_POST['prev_grade_table'] ?? '');
         $prev_grade_id    = (int)($_POST['prev_grade_id']    ?? 0);
         $is_ip    = $_POST['is_ip']    ?? 'No';
@@ -1808,7 +2135,7 @@ public function reject_ten() {
             `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`,
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`,
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`,
-            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
+            `lsa`, `lysc`, `school_id`, `id_student`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $stmt = $connection->prepare($query);
@@ -1816,7 +2143,20 @@ public function reject_ten() {
             $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email,
             $current_address, $perm_address, $ffname, $flname, $fmi,
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc,
-            $lsa, $lysc, $school_id, $id_resident, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
+            $lsa, $lysc, $school_id, $id_student, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
+        ]);
+
+        $this->run_ai_document_review('tbl_eleven', 'id_eleven', $connection->lastInsertId(), $uploadedPaths, [
+            'Full Name'                => trim("$lname, $fname $mi"),
+            'Birthdate'                => $bdate,
+            'LRN'                      => $lrn,
+            'Course/Strand'            => $course,
+            'Last School Attended'     => $lsa,
+            'Last Grade Level Completed' => $lglc,
+            'Is 4Ps Beneficiary'       => $is_4ps,
+            '4Ps Household ID'         => $fourps_id,
+            'Is IP Member'             => $is_ip,
+            'IP Group'                 => $ip_group,
         ]);
 
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
@@ -1842,14 +2182,14 @@ public function reject_ten() {
     }
 }
 
-    public function get_single_eleven($id_resident){
+    public function get_single_eleven($id_student){
         // Removed the $_GET overwrite so it uses the passed ID correctly
         $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * FROM tbl_eleven WHERE id_resident = ?");
-        $stmt->execute([$id_resident]);
-        $resident = $stmt->fetch();
+        $stmt = $connection->prepare("SELECT * FROM tbl_eleven WHERE id_student = ?");
+        $stmt->execute([$id_student]);
+        $student = $stmt->fetch();
 
-        return $resident ?: false;
+        return $student ?: false;
     }
     public function view_eleven(){ 
         $connection = $this->openConn();
@@ -1878,7 +2218,7 @@ public function approve_eleven() {
     $connection = $this->openConn();
     try { $connection->exec("ALTER TABLE tbl_eleven ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
     try { $connection->exec("ALTER TABLE tbl_eleven ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
-    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_eleven WHERE id_eleven = ?");
+    $fetch = $connection->prepare("SELECT id_student, email, fname, lname FROM tbl_eleven WHERE id_eleven = ?");
     $fetch->execute([$id_eleven]);
     $student = $fetch->fetch();
     $update = $connection->prepare("UPDATE tbl_eleven SET enrollment_status = 'Approved', reject_reason = NULL WHERE id_eleven = ?");
@@ -1912,6 +2252,7 @@ public function approve_eleven() {
     }
 
     $this->closeConn();
+    $this->add_notification($student['id_student'] ?? null, 'Grade 11 Enrollment Approved', 'Your Grade 11 enrollment has been approved. Please visit the school to complete your enrollment requirements.', 'approved');
     $email = $student['email'] ?? '';
     $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
     if (!empty($email)) {
@@ -1952,12 +2293,13 @@ public function reject_eleven() {
     $connection = $this->openConn();
     try { $connection->exec("ALTER TABLE tbl_eleven ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
     try { $connection->exec("ALTER TABLE tbl_eleven ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
-    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_eleven WHERE id_eleven = ?");
+    $fetch = $connection->prepare("SELECT id_student, email, fname, lname FROM tbl_eleven WHERE id_eleven = ?");
     $fetch->execute([$id_eleven]);
     $student = $fetch->fetch();
     $update = $connection->prepare("UPDATE tbl_eleven SET enrollment_status = 'Rejected', reject_reason = ? WHERE id_eleven = ?");
     $update->execute([$reject_reason, $id_eleven]);
     $this->closeConn();
+    $this->add_notification($student['id_student'] ?? null, 'Grade 11 Enrollment Rejected', 'Your Grade 11 enrollment was not approved.' . (!empty($reject_reason) ? ' Reason: ' . $reject_reason : ''), 'rejected');
     $email = $student['email'] ?? '';
     $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
     if (!empty($email)) {
@@ -2087,7 +2429,7 @@ public function reject_eleven() {
         $lsa = $_POST['lsa'] ?? '';
         $lysc = $_POST['lysc'] ?? '';
         $school_id = $_POST['school_id'] ?? '';
-        $id_resident = $_POST['id_resident'] ?? '';
+        $id_student = $_POST['id_student'] ?? '';
         $prev_grade_table = trim($_POST['prev_grade_table'] ?? '');
         $prev_grade_id    = (int)($_POST['prev_grade_id']    ?? 0);
         $is_ip    = $_POST['is_ip']    ?? 'No';
@@ -2148,7 +2490,7 @@ public function reject_eleven() {
             `sy`, `lrn`, `course`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`,
             `current_address`, `perm_address`, `ffname`, `flname`, `fmi`,
             `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`,
-            `lsa`, `lysc`, `school_id`, `id_resident`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
+            `lsa`, `lysc`, `school_id`, `id_student`, `documents`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         $stmt = $connection->prepare($query);
@@ -2156,7 +2498,20 @@ public function reject_eleven() {
             $sy, $lrn, $course, $lname, $fname, $mi, $bdate, $sex, $age, $contact, $email,
             $current_address, $perm_address, $ffname, $flname, $fmi,
             $contact_f, $mlname, $mfname, $mmi, $contact_m, $lglc,
-            $lsa, $lysc, $school_id, $id_resident, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
+            $lsa, $lysc, $school_id, $id_student, $documents_json, $is_ip, $ip_group, $is_4ps, $fourps_id, $prev_grade_table, $prev_grade_id
+        ]);
+
+        $this->run_ai_document_review('tbl_twelve', 'id_twelve', $connection->lastInsertId(), $uploadedPaths, [
+            'Full Name'                => trim("$lname, $fname $mi"),
+            'Birthdate'                => $bdate,
+            'LRN'                      => $lrn,
+            'Course/Strand'            => $course,
+            'Last School Attended'     => $lsa,
+            'Last Grade Level Completed' => $lglc,
+            'Is 4Ps Beneficiary'       => $is_4ps,
+            '4Ps Household ID'         => $fourps_id,
+            'Is IP Member'             => $is_ip,
+            'IP Group'                 => $ip_group,
         ]);
 
         echo "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css'>
@@ -2181,14 +2536,14 @@ public function reject_eleven() {
         exit();
     }
 }
-    public function get_single_twelve($id_resident){
+    public function get_single_twelve($id_student){
         // Removed the $_GET overwrite so it uses the passed ID correctly
         $connection = $this->openConn();
-        $stmt = $connection->prepare("SELECT * FROM tbl_twelve WHERE id_resident = ?");
-        $stmt->execute([$id_resident]);
-        $resident = $stmt->fetch();
+        $stmt = $connection->prepare("SELECT * FROM tbl_twelve WHERE id_student = ?");
+        $stmt->execute([$id_student]);
+        $student = $stmt->fetch();
 
-        return $resident ?: false;
+        return $student ?: false;
     }
 
     public function view_twelve(){ 
@@ -2218,7 +2573,7 @@ public function approve_twelve() {
     $connection = $this->openConn();
     try { $connection->exec("ALTER TABLE tbl_twelve ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
     try { $connection->exec("ALTER TABLE tbl_twelve ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
-    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_twelve WHERE id_twelve = ?");
+    $fetch = $connection->prepare("SELECT id_student, email, fname, lname FROM tbl_twelve WHERE id_twelve = ?");
     $fetch->execute([$id_twelve]);
     $student = $fetch->fetch();
     $update = $connection->prepare("UPDATE tbl_twelve SET enrollment_status = 'Approved', reject_reason = NULL WHERE id_twelve = ?");
@@ -2252,6 +2607,7 @@ public function approve_twelve() {
     }
 
     $this->closeConn();
+    $this->add_notification($student['id_student'] ?? null, 'Grade 12 Enrollment Approved', 'Your Grade 12 enrollment has been approved. Please visit the school to complete your enrollment requirements.', 'approved');
     $email = $student['email'] ?? '';
     $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
     if (!empty($email)) {
@@ -2292,12 +2648,13 @@ public function reject_twelve() {
     $connection = $this->openConn();
     try { $connection->exec("ALTER TABLE tbl_twelve ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
     try { $connection->exec("ALTER TABLE tbl_twelve ADD COLUMN reject_reason TEXT NULL DEFAULT NULL"); } catch (PDOException $e) {}
-    $fetch = $connection->prepare("SELECT email, fname, lname FROM tbl_twelve WHERE id_twelve = ?");
+    $fetch = $connection->prepare("SELECT id_student, email, fname, lname FROM tbl_twelve WHERE id_twelve = ?");
     $fetch->execute([$id_twelve]);
     $student = $fetch->fetch();
     $update = $connection->prepare("UPDATE tbl_twelve SET enrollment_status = 'Rejected', reject_reason = ? WHERE id_twelve = ?");
     $update->execute([$reject_reason, $id_twelve]);
     $this->closeConn();
+    $this->add_notification($student['id_student'] ?? null, 'Grade 12 Enrollment Rejected', 'Your Grade 12 enrollment was not approved.' . (!empty($reject_reason) ? ' Reason: ' . $reject_reason : ''), 'rejected');
     $email = $student['email'] ?? '';
     $name  = trim(($student['fname'] ?? '').' '.($student['lname'] ?? ''));
     if (!empty($email)) {
@@ -2498,12 +2855,12 @@ public function reject_twelve() {
                     continue;
                 }
 
-                // Check if already promoted (same resident in destination)
+                // Check if already promoted (same student in destination)
                 $dup_check = $conn->prepare(
                     "SELECT COUNT(*) FROM {$dst_table}
-                     WHERE id_resident = ? AND (is_archived = 0 OR is_archived IS NULL)"
+                     WHERE id_student = ? AND (is_archived = 0 OR is_archived IS NULL)"
                 );
-                $dup_check->execute([$row['id_resident']]);
+                $dup_check->execute([$row['id_student']]);
                 if ($dup_check->fetchColumn() > 0) {
                     $skipped++;
                     $errors[] = "Student {$row['lname']}, {$row['fname']} already exists in the destination grade (skipped).";
@@ -2525,7 +2882,7 @@ public function reject_twelve() {
 
                 // Build INSERT
                 $common_fields = [
-                    'id_resident', 'lrn', 'lname', 'fname', 'mi',
+                    'id_student', 'lrn', 'lname', 'fname', 'mi',
                     'bdate', 'sex', 'age', 'contact', 'email',
                     'current_address', 'perm_address',
                     'ffname', 'flname', 'fmi', 'contact_f',
@@ -2540,8 +2897,8 @@ public function reject_twelve() {
                         $new_sy,
                         $row['lrn'],
                         $course_val,
-                        $row['id_resident'],
-                        // remaining common fields minus id_resident and lrn
+                        $row['id_student'],
+                        // remaining common fields minus id_student and lrn
                     ];
                     // Easier: build col=>val map
                     $col_val = ['sy' => $new_sy, 'course' => $course_val];
@@ -2599,7 +2956,7 @@ public function reject_twelve() {
         // Ensure table exists
         $conn->exec("CREATE TABLE IF NOT EXISTS tbl_promotion_requests (
             id           INT AUTO_INCREMENT PRIMARY KEY,
-            id_resident  INT NOT NULL,
+            id_student  INT NOT NULL,
             from_grade   VARCHAR(5) NOT NULL,
             to_grade     VARCHAR(5) NOT NULL,
             record_id    INT NOT NULL,
@@ -2615,7 +2972,7 @@ public function reject_twelve() {
         $user = $this->get_userdata();
         if (empty($user)) { return; }
  
-        $id_resident = (int)($user['id_resident'] ?? 0);
+        $id_student = (int)($user['id_student'] ?? 0);
         $from_grade  = trim($_POST['from_grade'] ?? '');
         $record_id   = (int)($_POST['record_id'] ?? 0);
         $notes       = trim($_POST['notes'] ?? '');
@@ -2624,7 +2981,7 @@ public function reject_twelve() {
             '7' => '8', '8' => '9', '9' => '10',
             '10' => '11', '11' => '12'
         ];
-        if (!isset($grade_map[$from_grade]) || $id_resident === 0 || $record_id === 0) {
+        if (!isset($grade_map[$from_grade]) || $id_student === 0 || $record_id === 0) {
             $_SESSION['swal'] = ['icon'=>'error','title'=>'Error','text'=>'Invalid promotion request.'];
             header('Location: promotion_request.php'); exit;
         }
@@ -2641,10 +2998,10 @@ public function reject_twelve() {
         $src = $src_table_map[$from_grade];
         $enr_check = $conn->prepare(
             "SELECT enrollment_status FROM {$src['table']}
-             WHERE {$src['pk']} = ? AND id_resident = ? AND (is_archived = 0 OR is_archived IS NULL)
+             WHERE {$src['pk']} = ? AND id_student = ? AND (is_archived = 0 OR is_archived IS NULL)
              LIMIT 1"
         );
-        $enr_check->execute([$record_id, $id_resident]);
+        $enr_check->execute([$record_id, $id_student]);
         $enr_row = $enr_check->fetch(PDO::FETCH_ASSOC);
         if (!$enr_row || strtolower($enr_row['enrollment_status'] ?? '') !== 'approved') {
             $_SESSION['swal'] = ['icon'=>'warning','title'=>'Not Yet Approved',
@@ -2655,9 +3012,9 @@ public function reject_twelve() {
         // Bug Fix 3: Block if a Pending OR Approved promotion request already exists for this grade
         $dup = $conn->prepare(
             "SELECT id FROM tbl_promotion_requests
-             WHERE id_resident = ? AND from_grade = ? AND status IN ('Pending', 'Approved')"
+             WHERE id_student = ? AND from_grade = ? AND status IN ('Pending', 'Approved')"
         );
-        $dup->execute([$id_resident, $from_grade]);
+        $dup->execute([$id_student, $from_grade]);
         $dup_row = $dup->fetch();
         if ($dup_row) {
             $_SESSION['swal'] = ['icon'=>'warning','title'=>'Already Processed',
@@ -2684,7 +3041,7 @@ public function reject_twelve() {
                 $mime  = $finfo->file($tmpName);
                 if (!in_array($mime, $allowedTypes)) continue;
                 $origName  = basename($_FILES['documents']['name'][$idx]);
-                $safeName  = time() . '_' . $id_resident . '_' . $idx . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $origName);
+                $safeName  = time() . '_' . $id_student . '_' . $idx . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $origName);
                 $dest      = $uploadDir . $safeName;
                 if (move_uploaded_file($tmpName, $dest)) {
                     $uploadedPaths[] = 'uploads/promotion_docs/' . $safeName;
@@ -2696,10 +3053,10 @@ public function reject_twelve() {
  
         $ins = $conn->prepare(
             "INSERT INTO tbl_promotion_requests
-             (id_resident, from_grade, to_grade, record_id, documents, notes, status, submitted_at)
+             (id_student, from_grade, to_grade, record_id, documents, notes, status, submitted_at)
              VALUES (?, ?, ?, ?, ?, ?, 'Pending', NOW())"
         );
-        $ins->execute([$id_resident, $from_grade, $to_grade, $record_id, $docs_json, $notes]);
+        $ins->execute([$id_student, $from_grade, $to_grade, $record_id, $docs_json, $notes]);
  
         $_SESSION['swal'] = ['icon'=>'success','title'=>'Request Submitted!',
             'text'=>'Your promotion request has been submitted. Please wait for admin approval.'];
@@ -2707,14 +3064,14 @@ public function reject_twelve() {
     }
  
     /**
-     * Returns all promotion requests for the current resident.
+     * Returns all promotion requests for the current student.
      */
     public function get_my_promotion_requests() {
         $conn = $this->openConn();
         try {
             $conn->exec("CREATE TABLE IF NOT EXISTS tbl_promotion_requests (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                id_resident INT NOT NULL,
+                id_student INT NOT NULL,
                 from_grade VARCHAR(5) NOT NULL,
                 to_grade VARCHAR(5) NOT NULL,
                 record_id INT NOT NULL,
@@ -2728,11 +3085,11 @@ public function reject_twelve() {
             )");
             $user = $this->get_userdata();
             if (empty($user)) return [];
-            $id_resident = (int)($user['id_resident'] ?? 0);
+            $id_student = (int)($user['id_student'] ?? 0);
             $stmt = $conn->prepare(
-                "SELECT * FROM tbl_promotion_requests WHERE id_resident = ? ORDER BY submitted_at DESC"
+                "SELECT * FROM tbl_promotion_requests WHERE id_student = ? ORDER BY submitted_at DESC"
             );
-            $stmt->execute([$id_resident]);
+            $stmt->execute([$id_student]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) { return []; }
     }
@@ -2745,7 +3102,7 @@ public function reject_twelve() {
         try {
             $conn->exec("CREATE TABLE IF NOT EXISTS tbl_promotion_requests (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                id_resident INT NOT NULL,
+                id_student INT NOT NULL,
                 from_grade VARCHAR(5) NOT NULL,
                 to_grade VARCHAR(5) NOT NULL,
                 record_id INT NOT NULL,
@@ -2760,7 +3117,7 @@ public function reject_twelve() {
             $where = $status_filter ? "WHERE pr.status = ?" : "";
             $sql = "SELECT pr.*, r.fname, r.lname, r.mi
                     FROM tbl_promotion_requests pr
-                    LEFT JOIN tbl_resident r ON r.id_resident = pr.id_resident
+                    LEFT JOIN tbl_student r ON r.id_student = pr.id_student
                     {$where}
                     ORDER BY pr.submitted_at DESC";
             $stmt = $conn->prepare($sql);
@@ -2794,12 +3151,12 @@ public function reject_twelve() {
             header('Location: admn_promotion_requests.php'); exit;
         }
  
-        // Fetch the resident's email and name from tbl_resident
-        $res = $conn->prepare("SELECT fname, lname, email FROM tbl_resident WHERE id_resident = ?");
-        $res->execute([$req['id_resident']]);
-        $resident = $res->fetch(PDO::FETCH_ASSOC);
-        $email = $resident['email'] ?? '';
-        $name  = trim(($resident['fname'] ?? '') . ' ' . ($resident['lname'] ?? ''));
+        // Fetch the student's email and name from tbl_student
+        $res = $conn->prepare("SELECT fname, lname, email FROM tbl_student WHERE id_student = ?");
+        $res->execute([$req['id_student']]);
+        $student = $res->fetch(PDO::FETCH_ASSOC);
+        $email = $student['email'] ?? '';
+        $name  = trim(($student['fname'] ?? '') . ' ' . ($student['lname'] ?? ''));
         $from_label = 'Grade ' . $req['from_grade'];
         $to_label   = 'Grade ' . $req['to_grade'];
  
@@ -2815,6 +3172,13 @@ public function reject_twelve() {
             $conn->prepare(
                 "UPDATE tbl_promotion_requests SET status='Approved', reviewed_at=NOW() WHERE id=?"
             )->execute([$id]);
+
+            $this->add_notification(
+                $req['id_student'] ?? null,
+                'Promotion Request Approved',
+                "Your grade promotion request from {$from_label} to {$to_label} has been approved for School Year {$new_sy}.",
+                'approved'
+            );
  
             // Send approval email
             if (!empty($email)) {
@@ -2859,7 +3223,7 @@ public function reject_twelve() {
     }
  
     /**
-     * Admin: reject a promotion request and email the resident.
+     * Admin: reject a promotion request and email the student.
      */
     public function admin_reject_promotion_request() {
         if (!isset($_POST['reject_promotion_request'])) return;
@@ -2874,22 +3238,31 @@ public function reject_twelve() {
         $stmt->execute([$id]);
         $req = $stmt->fetch(PDO::FETCH_ASSOC);
  
-        // Fetch the resident's email and name
+        // Fetch the student's email and name
         $email = '';
         $name  = '';
         $from_label = 'Grade ' . ($req['from_grade'] ?? '');
         $to_label   = 'Grade ' . ($req['to_grade'] ?? '');
         if ($req) {
-            $res = $conn->prepare("SELECT fname, lname, email FROM tbl_resident WHERE id_resident = ?");
-            $res->execute([$req['id_resident']]);
-            $resident = $res->fetch(PDO::FETCH_ASSOC);
-            $email = $resident['email'] ?? '';
-            $name  = trim(($resident['fname'] ?? '') . ' ' . ($resident['lname'] ?? ''));
+            $res = $conn->prepare("SELECT fname, lname, email FROM tbl_student WHERE id_student = ?");
+            $res->execute([$req['id_student']]);
+            $student = $res->fetch(PDO::FETCH_ASSOC);
+            $email = $student['email'] ?? '';
+            $name  = trim(($student['fname'] ?? '') . ' ' . ($student['lname'] ?? ''));
         }
  
         $conn->prepare(
             "UPDATE tbl_promotion_requests SET status='Rejected', reject_reason=?, reviewed_at=NOW() WHERE id=?"
         )->execute([$reason, $id]);
+
+        if ($req) {
+            $this->add_notification(
+                $req['id_student'] ?? null,
+                'Promotion Request Rejected',
+                "Your grade promotion request from {$from_label} to {$to_label} was not approved." . (!empty($reason) ? " Reason: {$reason}" : ''),
+                'rejected'
+            );
+        }
  
         // Send rejection email
         if (!empty($email)) {

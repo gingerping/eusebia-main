@@ -3,7 +3,7 @@
 error_reporting(E_ALL ^ E_WARNING);
     ini_set('display_errors', 1);
 require('classes/main.class.php');
-require('classes/resident.class.php');
+require('classes/student.class.php');
 
 $userdetails = $eusebia->get_userdata();
 $eusebia->create_eight();
@@ -27,7 +27,7 @@ $current_date = $dt->format('l, F j, Y');
     <link rel="apple-touch-icon" sizes="144x144" href="icons/pwa/icon-144x144.png">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/pwa/icon-192x192.png">
 
-    <title>EPANHS | Grade 8 Enrollment</title>
+    <title>EPAMNHS | Grade 8 Enrollment</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -318,26 +318,7 @@ $current_date = $dt->format('l, F j, Y');
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-custom sticky-top">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="resident_homepage.php">
-            <i class="bi bi-mortarboard-fill me-2"></i> EPAMHS Portal
-        </a>
-        <div class="dropdown ms-auto">
-            <button class="btn dropdown-toggle-custom dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="fas fa-user-circle me-2"></i> <?= htmlspecialchars($userdetails['surname'] . ', ' . $userdetails['firstname']); ?>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-custom dropdown-menu-end" aria-labelledby="userDropdown">
-                <li><a class="dropdown-item dropdown-item-custom" href="resident_homepage.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a class="dropdown-item dropdown-item-custom" href="my_submissions.php?id_resident=<?= $current_user_id ?>"><i class="fas fa-file-alt"></i> My Submissions</a></li>
-                <li><a class="dropdown-item dropdown-item-custom" href="resident_profile.php?id_resident=<?= $current_user_id ?>"><i class="fas fa-id-card"></i> My Profile</a></li>
-                <li><a class="dropdown-item dropdown-item-custom" href="resident_changepass.php?id_resident=<?= $current_user_id ?>"><i class="fas fa-key"></i> Change Password</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item dropdown-item-custom" href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-            </ul>
-        </div>
-    </div>
-</nav>
+<?php include('student_navbar.php'); ?>
 
 <div class="hero-enroll">
     <div class="container">
@@ -546,7 +527,7 @@ $current_date = $dt->format('l, F j, Y');
                         </div>
 
                         <input type="hidden" name="student_type" id="studentTypeHidden" value="new">
-                        <input type="hidden" name="id_resident" value="<?= $userdetails['id_resident'] ?? ''; ?>">
+                        <input type="hidden" name="id_student" value="<?= $userdetails['id_student'] ?? ''; ?>">
                         <!-- Populated by LRN lookup — tells backend which Grade 7 record to delete on approval -->
                         <input type="hidden" name="prev_grade_table" value="">
                         <input type="hidden" name="prev_grade_id"    value="">
@@ -565,18 +546,7 @@ $current_date = $dt->format('l, F j, Y');
 
 <a href="#" class="top-link" id="backToTopBtn"><i class="fas fa-arrow-up"></i></a>
 
-<footer class="footer-custom">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-6 mb-3 mb-md-0">
-                <i class="fas fa-school me-2"></i> Eusebia Paz Arroyo Memorial National High School
-            </div>
-            <div class="col-md-6 text-md-end">
-                <p class="mb-0"><?= date('Y') ?> EPAMHS Portal. All rights reserved.</p>
-            </div>
-        </div>
-    </div>
-</footer>
+<?php include('student_footer.php'); ?>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>

@@ -391,7 +391,7 @@
         <i class="fas fa-sign-in-alt"></i>
         <span class="btn-label">Log in</span>
       </a>
-      <a href="resident_registration.php" class="btn-nav btn-register">
+      <a href="student_registration.php" class="btn-nav btn-register">
         <i class="fas fa-user-plus"></i>
         <span class="btn-label">Register</span>
       </a>

@@ -8,9 +8,9 @@
  * This file:
  *   1. Exchanges the code for an access token
  *   2. Fetches the Facebook profile (name + email)
- *   3. If email found in tbl_resident  → logs them in
- *   4. If email NOT found              → auto-registers in tbl_resident, then logs in
- *   5. Redirects to resident_homepage.php
+ *   3. If email found in tbl_student  → logs them in
+ *   4. If email NOT found              → auto-registers in tbl_student, then logs in
+ *   5. Redirects to student_homepage.php
  */
 
 session_start();
@@ -92,26 +92,26 @@ $fb_email = $fb_user['email']      ?? ($fb_user['id'] . '@facebook.com');
 $fb_fname = $fb_user['first_name'] ?? ($fb_user['name'] ?? 'Facebook');
 $fb_lname = $fb_user['last_name']  ?? 'User';
 
-// ── Step 3: Check if resident already exists ──────────────────────────────────
-$stmt = $conn->prepare("SELECT * FROM tbl_resident WHERE email = ? LIMIT 1");
+// ── Step 3: Check if student already exists ──────────────────────────────────
+$stmt = $conn->prepare("SELECT * FROM tbl_student WHERE email = ? LIMIT 1");
 $stmt->execute([$fb_email]);
-$resident = $stmt->fetch(PDO::FETCH_ASSOC);
+$student = $stmt->fetch(PDO::FETCH_ASSOC);
 
 $eusebia = new EUSEBIAClass();
 
-if ($resident) {
+if ($student) {
     // ── EXISTING: just log in ─────────────────────────────────────────────────
-    $eusebia->set_userdata($resident);
-    header('Location: resident_homepage.php');
+    $eusebia->set_userdata($student);
+    header('Location: student_homepage.php');
     exit();
 }
 
-// ── Step 4: NEW RESIDENT — auto-register ─────────────────────────────────────
-// Only columns that actually exist in tbl_resident are used here.
-// (Matching the exact schema from resident.class.php → create_resident)
+// ── Step 4: NEW STUDENT — auto-register ─────────────────────────────────────
+// Only columns that actually exist in tbl_student are used here.
+// (Matching the exact schema from student.class.php → create_student)
 try {
     $stmt = $conn->prepare("
-        INSERT INTO tbl_resident (
+        INSERT INTO tbl_student (
             `email`, `phone_number`, `password`,
             `lname`, `fname`, `mi`,
             `age`, `sex`, `status`,
@@ -140,12 +140,12 @@ try {
 
     // Fetch the newly created row to build the session correctly
     $new_id = $conn->lastInsertId();
-    $stmt2  = $conn->prepare("SELECT * FROM tbl_resident WHERE id_resident = ? LIMIT 1");
+    $stmt2  = $conn->prepare("SELECT * FROM tbl_student WHERE id_student = ? LIMIT 1");
     $stmt2->execute([$new_id]);
-    $new_resident = $stmt2->fetch(PDO::FETCH_ASSOC);
+    $new_student = $stmt2->fetch(PDO::FETCH_ASSOC);
 
-    $eusebia->set_userdata($new_resident);
-    header('Location: resident_homepage.php');
+    $eusebia->set_userdata($new_student);
+    header('Location: student_homepage.php');
     exit();
 
 } catch (PDOException $e) {

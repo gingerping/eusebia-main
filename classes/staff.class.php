@@ -107,40 +107,40 @@
             </script>";
         }
 
-    // ==================== PROMOTE RESIDENT TO STAFF ====================
+    // ==================== PROMOTE STUDENT TO STAFF ====================
 
-        public function promote_resident_to_staff() {
-            if (!isset($_POST['promote_resident'])) return;
+        public function promote_student_to_staff() {
+            if (!isset($_POST['promote_student'])) return;
 
-            $id_resident     = (int)($_POST['id_resident'] ?? 0);
+            $id_student     = (int)($_POST['id_student'] ?? 0);
             $position        = trim($_POST['position'] ?? '');
             $subject_handled = trim($_POST['subject_handled'] ?? '');
             $adviser_grade   = trim($_POST['adviser_grade'] ?? '');
             $subject_grades  = isset($_POST['subject_grades']) && is_array($_POST['subject_grades'])
                                ? implode(',', $_POST['subject_grades']) : '';
 
-            if (!$id_resident || !$position) {
+            if (!$id_student || !$position) {
                 echo "<script>Swal.fire({ icon:'error', title:'Missing Info', text:'Please select a position.' });</script>";
                 return;
             }
 
             $connection = $this->openConn();
-            $stmt = $connection->prepare("SELECT * FROM tbl_resident WHERE id_resident=? AND is_archived=0");
-            $stmt->execute([$id_resident]);
-            $resident = $stmt->fetch(PDO::FETCH_ASSOC);
+            $stmt = $connection->prepare("SELECT * FROM tbl_student WHERE id_student=? AND is_archived=0");
+            $stmt->execute([$id_student]);
+            $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if (!$resident) {
-                echo "<script>Swal.fire({ icon:'error', title:'Not Found', text:'Resident account not found.' });</script>";
+            if (!$student) {
+                echo "<script>Swal.fire({ icon:'error', title:'Not Found', text:'Student account not found.' });</script>";
                 return;
             }
 
-            $email   = $resident['email'] ?? null;
-            $contact = $resident['contact'] ?? '';
+            $email   = $student['email'] ?? null;
+            $contact = $student['contact'] ?? '';
             $address = trim(implode(', ', array_filter([
-                $resident['houseno']   ?? '',
-                $resident['street']    ?? '',
-                $resident['brgy']      ?? '',
-                $resident['municipal'] ?? ''
+                $student['houseno']   ?? '',
+                $student['street']    ?? '',
+                $student['brgy']      ?? '',
+                $student['municipal'] ?? ''
             ])));
 
             $chk = $connection->prepare("SELECT id_user FROM tbl_user WHERE email=?");
@@ -156,14 +156,14 @@
                  `subject_handled`,`adviser_grade`,`subject_grades`)
                 VALUES (?,?,?,?,?,?,?,?,?,?,'staff','Admin-Promoted',?,?,?)");
             $stmt2->execute([
-                $email, $resident['password'],
-                $resident['lname'], $resident['fname'], $resident['mi'],
-                $resident['age'],   $resident['sex'],   $address, $contact,
+                $email, $student['password'],
+                $student['lname'], $student['fname'], $student['mi'],
+                $student['age'],   $student['sex'],   $address, $contact,
                 $position, $subject_handled, $adviser_grade, $subject_grades
             ]);
 
-            $del = $connection->prepare("DELETE FROM tbl_resident WHERE id_resident=?");
-            $del->execute([$id_resident]);
+            $del = $connection->prepare("DELETE FROM tbl_student WHERE id_student=?");
+            $del->execute([$id_student]);
 
             echo "<script>
                 Swal.fire({

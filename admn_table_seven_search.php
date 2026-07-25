@@ -1,4 +1,4 @@
-<?php require 'classes/conn.php'; ?>
+<?php require 'classes/conn.php'; require_once 'classes/ai_review_ui.php'; ?>
 
 <!-- ===== DOCUMENT VIEWER MODAL ===== -->
 <div class="modal fade" id="docViewerModal" tabindex="-1" role="dialog" aria-labelledby="docViewerTitle" aria-hidden="true">
@@ -74,6 +74,15 @@
 /* ---- helper: renders the Documents cell ---- */
 function renderDocs($docsJson) {
     $docs = json_decode($docsJson ?? '[]', true);
+    if (is_array($docs) && array_key_exists('admin_marked', $docs)) {
+        if ($docs['admin_marked'] === 'Incomplete') {
+            echo '<span class="badge badge-warning" title="' . htmlspecialchars($docs['note'] ?? '') . '"><i class="fas fa-exclamation-triangle mr-1"></i>Incomplete</span>';
+            if (!empty($docs['note'])) echo '<br><span class="text-muted small">' . htmlspecialchars($docs['note']) . '</span>';
+        } else {
+            echo '<span class="badge badge-success"><i class="fas fa-check mr-1"></i>Complete (added by admin)</span>';
+        }
+        return;
+    }
     if (empty($docs)) { echo '<span class="text-muted small">No documents</span>'; return; }
     foreach ($docs as $docPath) {
         $fileName = basename($docPath);
@@ -101,209 +110,164 @@ function renderStatus($status) {
 }
 
 /* ---- helper: renders the Action buttons ---- */
-function renderActions($id_seven, $id_resident, $status, $fname, $lname, $mi, $prefix = '') {
-    $fullName = htmlspecialchars($lname . ', ' . $fname . ' ' . $mi);
-    $modalId  = 'viewModal' . $prefix . $id_seven;
+function renderActions($id_seven, $id_student, $status, $fname, $lname, $mi, $prefix = '') {
+    $fullName = htmlspecialchars($lname.', '.$fname.' '.$mi);
+    $modalId  = 'viewModal'.$prefix.$id_student;
+    $ddId     = 'actionsDd'.$prefix.$id_seven;
     ?>
-    <!-- View -->
-    <button type="button" class="btn btn-success btn-sm mb-1"
-        data-toggle="modal" data-target="#<?= $modalId ?>">
-        <i class="fa fa-eye"></i> View
-    </button>
-
-    <!-- Archive -->
-    <form action="" method="post" style="display:inline;">
-        <input type="hidden" name="id_seven" value="<?= $id_seven ?>">
-        <button class="btn btn-secondary btn-sm mb-1" type="submit" name="delete_seven" style="border-radius:30px;">
-            <i class="fas fa-archive mr-1"></i>Archive
+    <div class="dropdown">
+        <button class="btn btn-outline-primary btn-sm dropdown-toggle actions-dropdown-toggle" type="button"
+            id="<?= $ddId ?>" data-toggle="dropdown" data-display="static" aria-haspopup="true" aria-expanded="false">
+            <i class="fas fa-ellipsis-v"></i> Actions
         </button>
-    </form>
+        <div class="dropdown-menu dropdown-menu-right actions-dropdown-menu" aria-labelledby="<?= $ddId ?>" data-boundary="window">
+            <div class="actions-dropdown-header">Actions</div>
+            <div class="actions-dropdown-body">
 
-    <?php if ($status !== 'Approved' && $status !== 'Rejected'): ?>
+            <a class="dropdown-item item-view" href="#" data-toggle="modal" data-target="#<?= $modalId ?>">
+                <span class="action-icon-badge"><i class="fa fa-eye"></i></span>View
+            </a>
 
-        <!-- Approve -->
-        <form action="" method="post" style="display:inline;" onsubmit="return confirmApprove(this);">
-            <input type="hidden" name="id_seven" value="<?= $id_seven ?>">
-            <input type="hidden" name="approve_seven" value="1">
-            <button class="btn btn-primary btn-sm mb-1" type="submit" style="border-radius:30px;">
-                <i class="fas fa-check-circle mr-1"></i>Approve
-            </button>
-        </form>
+            <form action="" method="post">
+                <input type="hidden" name="id_seven" value="<?= $id_seven ?>">
+                <button class="dropdown-item item-archive" type="submit" name="delete_seven">
+                    <span class="action-icon-badge"><i class="fas fa-archive"></i></span>Archive
+                </button>
+            </form>
 
-        <!-- Reject -->
-        <button type="button" class="btn btn-danger btn-sm mb-1" style="border-radius:30px;"
-            onclick="openRejectModal(<?= $id_seven ?>, '<?= addslashes($fullName) ?>')">
-            <i class="fas fa-times-circle mr-1"></i>Reject
-        </button>
+            <?php if ($status !== 'Approved' && $status !== 'Rejected'): ?>
+                <div class="dropdown-divider"></div>
+                <form action="" method="post" onsubmit="return confirmApprove(this);">
+                    <input type="hidden" name="id_seven" value="<?= $id_seven ?>">
+                    <input type="hidden" name="approve_seven" value="1">
+                    <button class="dropdown-item item-approve" type="submit">
+                        <span class="action-icon-badge"><i class="fas fa-check"></i></span>Approve
+                    </button>
+                </form>
+                <button class="dropdown-item item-reject" type="button"
+                    onclick="openRejectModal(<?= $id_seven ?>, '<?= addslashes($fullName) ?>')">
+                    <span class="action-icon-badge"><i class="fas fa-times"></i></span>Reject
+                </button>
 
-    <?php elseif ($status === 'Approved'): ?>
-        <span class="status-badge status-approved"><i class="fas fa-check-circle mr-1"></i>Approved</span>
+            <?php elseif ($status === 'Rejected'): ?>
+                <div class="dropdown-divider"></div>
+                <form action="" method="post" onsubmit="return confirmApprove(this);">
+                    <input type="hidden" name="id_seven" value="<?= $id_seven ?>">
+                    <input type="hidden" name="approve_seven" value="1">
+                    <button class="dropdown-item item-approve" type="submit">
+                        <span class="action-icon-badge"><i class="fas fa-check"></i></span>Approve
+                    </button>
+                </form>
+            <?php endif; ?>
 
-    <?php elseif ($status === 'Rejected'): ?>
-        <!-- Allow re-approve after rejection -->
-        <form action="" method="post" style="display:inline;" onsubmit="return confirmApprove(this);">
-            <input type="hidden" name="id_seven" value="<?= $id_seven ?>">
-            <input type="hidden" name="approve_seven" value="1">
-            <button class="btn btn-primary btn-sm mb-1" type="submit" style="border-radius:30px;">
-                <i class="fas fa-check-circle mr-1"></i>Approve
-            </button>
-        </form>
-        <span class="status-badge status-rejected"><i class="fas fa-times-circle mr-1"></i>Rejected</span>
-
-    <?php endif;
+            </div>
+        </div>
+    </div>
+<?php
 }
-
 ?>
 
-<?php if (isset($_POST['search_seven'])): $keyword = $_POST['keyword']; ?>
+<!-- ===== ENROLLEES TABLE (card, matches staff view style) ===== -->
+<div class="card shadow-sm">
+    <div class="card-header py-2 d-flex align-items-center justify-content-between"
+         style="background:linear-gradient(135deg,#0b2b5c,#1f5a9e);">
+        <span class="text-white font-weight-bold">
+            <i class="fas fa-table mr-1"></i> Grade 7 Enrollees
+        </span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered table-sm mb-0" id="studentsTable" style="font-size:.84rem;">
+                <thead class="thead-dark text-center">
+                    <tr>
+                        <th>LRN</th><th>Full Name</th><th>Birthday</th><th>Age</th>
+                        <th>Contact</th><th>Email</th><th>Documents</th><th>AI Review</th><th>Status</th><th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-center">
+            <?php if (is_array($view)): foreach ($view as $row):
+                $rStatus = $row['enrollment_status'] ?? 'Pending';
+            ?>
+                <tr>
+                    <td><?= htmlspecialchars($row['lrn']) ?></td>
+                    <td class="text-left"><?= htmlspecialchars($row['lname']) ?>, <?= htmlspecialchars($row['fname']) ?> <?= htmlspecialchars($row['mi']) ?></td>
+                    <td><?= htmlspecialchars($row['bdate']) ?></td>
+                    <td><?= htmlspecialchars($row['age']) ?></td>
+                    <td><?= htmlspecialchars($row['contact']) ?></td>
+                    <td><?= htmlspecialchars($row['email']) ?></td>
+                    <td style="min-width:145px;"><?php renderDocs($row['documents'] ?? ''); ?></td>
+                    <td style="min-width:150px;"><?php render_ai_review_cell($row['ai_analysis'] ?? null, 'seven', $row['id_seven']); ?></td>
+                    <td><?php renderStatus($rStatus); ?></td>
+                    <td style="min-width:220px;">
+                        <?php renderActions($row['id_seven'], $row['id_student'], $rStatus,
+                            $row['fname'], $row['lname'], $row['mi']); ?>
+                    </td>
+                </tr>
 
-<!-- ===== SEARCH RESULTS TABLE ===== -->
-<div class="table-responsive" style="width:100%;overflow-x:auto;">
-    <table class="table table-hover text-center table-bordered" style="min-width:1200px;">
-        <thead class="alert-info">
-            <tr>
-                <th>LRN</th><th>Full Name</th><th>Birthday</th><th>Age</th>
-                <th>Contact</th><th>Email</th><th>Documents</th><th>Status</th><th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-        <?php
-            $kw   = "%$keyword%";
-            $stmt = $conn->prepare("SELECT * FROM `tbl_seven` WHERE `lname` LIKE ? OR `fname` LIKE ? OR `id_resident` LIKE ? OR `lrn` LIKE ?");
-            $stmt->execute([$kw, $kw, $kw, $kw]);
-            while ($searchRow = $stmt->fetch()):
-                $sStatus = $searchRow['enrollment_status'] ?? 'Pending';
-        ?>
-        <tr>
-            <td><?= htmlspecialchars($searchRow['lrn']) ?></td>
-            <td><?= htmlspecialchars($searchRow['lname']) ?>, <?= htmlspecialchars($searchRow['fname']) ?> <?= htmlspecialchars($searchRow['mi']) ?></td>
-            <td><?= htmlspecialchars($searchRow['bdate']) ?></td>
-            <td><?= htmlspecialchars($searchRow['age']) ?></td>
-            <td><?= htmlspecialchars($searchRow['contact']) ?></td>
-            <td><?= htmlspecialchars($searchRow['email']) ?></td>
-            <td style="min-width:145px;"><?php renderDocs($searchRow['documents'] ?? ''); ?></td>
-            <td><?php renderStatus($sStatus); ?></td>
-            <td style="min-width:220px;">
-                <?php renderActions($searchRow['id_seven'], $searchRow['id_resident'], $sStatus,
-                    $searchRow['fname'], $searchRow['lname'], $searchRow['mi'], 'Srch'); ?>
-            </td>
-        </tr>
-
-        <!-- View Modal (search) -->
-        <div class="modal fade" id="viewModalSrch<?= $searchRow['id_seven'] ?>" tabindex="-1" role="dialog" aria-hidden="true">
-            <div class="modal-dialog modal-md modal-dialog-centered" role="document">
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title">Student Profile: <?= htmlspecialchars($searchRow['fname']) ?></h5>
-                        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
-                    </div>
-                    <div class="modal-body text-left">
-                        <p><strong>LRN:</strong> <?= htmlspecialchars($searchRow['lrn']) ?></p>
-                        <p><strong>Full Name:</strong> <?= htmlspecialchars($searchRow['lname']) ?>, <?= htmlspecialchars($searchRow['fname']) ?> <?= htmlspecialchars($searchRow['mi']) ?></p>
-                        <p><strong>Age:</strong> <?= htmlspecialchars($searchRow['age']) ?></p>
-                        <p><strong>Email:</strong> <?= htmlspecialchars($searchRow['email']) ?></p>
-                        <p><strong>IP Member:</strong> <?= htmlspecialchars($searchRow['is_ip'] ?? 'No') ?><?= (!empty($searchRow['ip_group'])) ? ' — ' . htmlspecialchars($searchRow['ip_group']) : '' ?></p>
-                        <p><strong>4Ps Beneficiary:</strong> <?= htmlspecialchars($searchRow['is_4ps'] ?? 'No') ?><?= (!empty($searchRow['fourps_id'])) ? ' — ID: ' . htmlspecialchars($searchRow['fourps_id']) : '' ?></p>
-                        <p><strong>Status:</strong> <?php renderStatus($sStatus); ?></p>
-                        <?php if ($sStatus === 'Rejected' && !empty($searchRow['reject_reason'])): ?>
-                        <p><strong>Rejection Reason:</strong> <?= htmlspecialchars($searchRow['reject_reason']) ?></p>
-                        <?php endif; ?>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <?php endwhile; ?>
-        </tbody>
-    </table>
-</div>
-
-<?php else: // DEFAULT VIEW ?>
-
-<!-- ===== DEFAULT TABLE ===== -->
-<div class="table-responsive" style="width:100%;overflow-x:auto;">
-    <table class="table table-hover text-center table-bordered" style="min-width:1200px;">
-        <thead class="alert-info">
-            <tr>
-                <th>LRN</th><th>Full Name</th><th>Birthday</th><th>Age</th>
-                <th>Contact</th><th>Email</th><th>Documents</th><th>Status</th><th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-    <?php if (is_array($view)): foreach ($view as $row):
-        $rStatus = $row['enrollment_status'] ?? 'Pending';
-    ?>
-        <tr>
-            <td><?= htmlspecialchars($row['lrn']) ?></td>
-            <td><?= htmlspecialchars($row['lname']) ?>, <?= htmlspecialchars($row['fname']) ?> <?= htmlspecialchars($row['mi']) ?></td>
-            <td><?= htmlspecialchars($row['bdate']) ?></td>
-            <td><?= htmlspecialchars($row['age']) ?></td>
-            <td><?= htmlspecialchars($row['contact']) ?></td>
-            <td><?= htmlspecialchars($row['email']) ?></td>
-        
-            <td style="min-width:145px;"><?php renderDocs($row['documents'] ?? ''); ?></td>
-            <td><?php renderStatus($rStatus); ?></td>
-            <td style="min-width:220px;">
-                <?php renderActions($row['id_seven'], $row['id_resident'], $rStatus,
-                    $row['fname'], $row['lname'], $row['mi']); ?>
-            </td>
-        </tr>
-
-        <!-- View Modal (default) -->
-        <div class="modal fade" id="viewModal<?= $row['id_seven'] ?>" tabindex="-1" role="dialog" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered" role="document">
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title">Student Information</h5>
-                        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
-                    </div>
-                    <div class="modal-body text-left">
-                        <p><strong>School Year:</strong> <?= htmlspecialchars($row['sy']) ?></p>
-                        <p><strong>LRN:</strong> <?= htmlspecialchars($row['lrn']) ?></p>
-                        <hr style="border:2px solid black;opacity:1;">
-                        <h5><strong>Personal Information</strong></h5>
-                        <p><strong>Full Name:</strong> <?= htmlspecialchars($row['lname']) ?>, <?= htmlspecialchars($row['fname']) ?> <?= htmlspecialchars($row['mi']) ?></p>
-                        <p><strong>Birthday:</strong> <?= htmlspecialchars($row['bdate']) ?></p>
-                        <p><strong>Age:</strong> <?= htmlspecialchars($row['age']) ?></p>
-                        <p><strong>Contact Number:</strong> <?= htmlspecialchars($row['contact']) ?></p>
-                        <p><strong>Email:</strong> <?= htmlspecialchars($row['email']) ?></p>
-                        <p><strong>Current Address:</strong> <?= htmlspecialchars($row['current_address']) ?></p>
-                        <p><strong>Permanent Address:</strong> <?= htmlspecialchars($row['perm_address']) ?></p>
-                        <hr style="border:2px solid black;opacity:1;">
-                        <h5><strong>Father's Information</strong></h5>
-                        <p><strong>Name:</strong> <?= htmlspecialchars($row['flname']) ?>, <?= htmlspecialchars($row['ffname']) ?> <?= htmlspecialchars($row['fmi']) ?></p>
-                        <p><strong>Contact:</strong> <?= htmlspecialchars($row['contact_f']) ?></p>
-                        <hr style="border:2px solid black;opacity:1;">
-                        <h5><strong>Mother's Information</strong></h5>
-                        <p><strong>Name:</strong> <?= htmlspecialchars($row['mlname']) ?>, <?= htmlspecialchars($row['mfname']) ?> <?= htmlspecialchars($row['mmi']) ?></p>
-                        <p><strong>Contact:</strong> <?= htmlspecialchars($row['contact_m']) ?></p>
-                        <hr style="border:2px solid black;opacity:1;">
-                        <h5><strong>For Returning Learner</strong></h5>
-                        <p><strong>Last Grade Level Completed:</strong> <?= htmlspecialchars($row['lglc']) ?></p>
-                        <p><strong>Last School Attended:</strong> <?= htmlspecialchars($row['lsa']) ?></p>
-                        <p><strong>Last School Year Completed:</strong> <?= htmlspecialchars($row['lysc']) ?></p>
-                        <p><strong>School ID:</strong> <?= htmlspecialchars($row['school_id']) ?></p>
-                        <hr style="border:2px solid black;opacity:1;">
-                        <h5><strong>Socioeconomic Information</strong></h5>
-                        <p><strong>IP Member:</strong> <?= htmlspecialchars($row['is_ip'] ?? 'No') ?><?= (!empty($row['ip_group'])) ? ' — ' . htmlspecialchars($row['ip_group']) : '' ?></p>
-                        <p><strong>4Ps Beneficiary:</strong> <?= htmlspecialchars($row['is_4ps'] ?? 'No') ?><?= (!empty($row['fourps_id'])) ? ' — ID: ' . htmlspecialchars($row['fourps_id']) : '' ?></p>
-                        <hr style="border:2px solid black;opacity:1;">
-                        <p><strong>Status:</strong> <?php renderStatus($rStatus); ?></p>
-                        <?php if ($rStatus === 'Rejected' && !empty($row['reject_reason'])): ?>
-                        <p><strong>Rejection Reason:</strong> <?= htmlspecialchars($row['reject_reason']) ?></p>
-                        <?php endif; ?>
+                <!-- View Modal -->
+                <div class="modal fade" id="viewModal<?= $row['id_student'] ?>" tabindex="-1" role="dialog" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header text-white" style="background:linear-gradient(135deg,#0b2b5c,#1f5a9e);">
+                                <h5 class="modal-title">Student Information</h5>
+                                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+                            </div>
+                            <div class="modal-body text-left">
+                                <p><strong>School Year:</strong> <?= htmlspecialchars($row['sy']) ?></p>
+                                <p><strong>LRN:</strong> <?= htmlspecialchars($row['lrn']) ?></p>
+                                <hr style="border:2px solid black;opacity:1;">
+                                <h5><strong>Personal Information</strong></h5>
+                                <p><strong>Full Name:</strong> <?= htmlspecialchars($row['lname']) ?>, <?= htmlspecialchars($row['fname']) ?> <?= htmlspecialchars($row['mi']) ?></p>
+                                <p><strong>Birthday:</strong> <?= htmlspecialchars($row['bdate']) ?></p>
+                                <p><strong>Age:</strong> <?= htmlspecialchars($row['age']) ?></p>
+                                <p><strong>Contact Number:</strong> <?= htmlspecialchars($row['contact']) ?></p>
+                                <p><strong>Email:</strong> <?= htmlspecialchars($row['email']) ?></p>
+                                <p><strong>Current Address:</strong> <?= htmlspecialchars($row['current_address']) ?></p>
+                                <p><strong>Permanent Address:</strong> <?= htmlspecialchars($row['perm_address']) ?></p>
+                                <hr style="border:2px solid black;opacity:1;">
+                                <h5><strong>Father's Information</strong></h5>
+                                <p><strong>Name:</strong> <?= htmlspecialchars($row['flname']) ?>, <?= htmlspecialchars($row['ffname']) ?> <?= htmlspecialchars($row['fmi']) ?></p>
+                                <p><strong>Contact:</strong> <?= htmlspecialchars($row['contact_f']) ?></p>
+                                <hr style="border:2px solid black;opacity:1;">
+                                <h5><strong>Mother's Information</strong></h5>
+                                <p><strong>Name:</strong> <?= htmlspecialchars($row['mlname']) ?>, <?= htmlspecialchars($row['mfname']) ?> <?= htmlspecialchars($row['mmi']) ?></p>
+                                <p><strong>Contact:</strong> <?= htmlspecialchars($row['contact_m']) ?></p>
+                                <hr style="border:2px solid black;opacity:1;">
+                                <h5><strong>For Returning Learner</strong></h5>
+                                <p><strong>Last Grade Level Completed:</strong> <?= htmlspecialchars($row['lglc']) ?></p>
+                                <p><strong>Last School Attended:</strong> <?= htmlspecialchars($row['lsa']) ?></p>
+                                <p><strong>Last School Year Completed:</strong> <?= htmlspecialchars($row['lysc']) ?></p>
+                                <p><strong>School ID:</strong> <?= htmlspecialchars($row['school_id']) ?></p>
+                                <hr style="border:2px solid black;opacity:1;">
+                                <h5><strong>Socioeconomic Information</strong></h5>
+                                <p><strong>IP Member:</strong> <?= htmlspecialchars($row['is_ip'] ?? 'No') ?><?= (!empty($row['ip_group'])) ? ' — ' . htmlspecialchars($row['ip_group']) : '' ?></p>
+                                <p><strong>4Ps Beneficiary:</strong> <?= htmlspecialchars($row['is_4ps'] ?? 'No') ?><?= (!empty($row['fourps_id'])) ? ' — ID: ' . htmlspecialchars($row['fourps_id']) : '' ?></p>
+                                <hr style="border:2px solid black;opacity:1;">
+                                <p><strong>Status:</strong> <?php renderStatus($rStatus); ?></p>
+                                <?php if ($rStatus === 'Rejected' && !empty($row['reject_reason'])): ?>
+                                <p><strong>Rejection Reason:</strong> <?= htmlspecialchars($row['reject_reason']) ?></p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
+            <?php endforeach; else: ?>
+                <tr><td colspan="10" class="text-center text-muted py-4">No students found.</td></tr>
+            <?php endif; ?>
+                </tbody>
+            </table>
         </div>
-    <?php endforeach; endif; ?>
-        </tbody>
-    </table>
+    </div>
 </div>
 
-<?php endif; $con = null; ?>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap4.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap4.min.js"></script>
+<script>
+$(document).ready(function(){
+    $('#studentsTable').DataTable({ pageLength: 20, order: [[1,'asc']] });
+});
+</script>
 
 <script>
 /* ---- Document Viewer ---- */

@@ -24,7 +24,7 @@
 		</thead>
 		<tbody>
 			<?php
-				$stmnt = $conn->prepare("SELECT * FROM `tbl_resident` WHERE `lname` LIKE '%$keyword%' or  `mi` LIKE '%$keyword%' or  `fname` LIKE '%$keyword%' 
+				$stmnt = $conn->prepare("SELECT * FROM `tbl_student` WHERE `lname` LIKE '%$keyword%' or  `mi` LIKE '%$keyword%' or  `fname` LIKE '%$keyword%' 
 				or  `age` LIKE '%$keyword%' or  `sex` LIKE '%$keyword%' or  `status` LIKE '%$keyword%' or  `address` LIKE '%$keyword%' or  `contact` LIKE '%$keyword%'
 				or  `bdate` LIKE '%$keyword%' or  `bplace` LIKE '%$keyword%' or  `nationality` LIKE '%$keyword%' or  `family_role` LIKE '%$keyword%' or  `role` LIKE '%$keyword%' or  `email` LIKE '%$keyword%'");
 				$stmnt->execute();
@@ -34,9 +34,9 @@
 			<tr>
 			    <td>    
                 <form action="" method="post">
-                    <a href="update_resident_form.php?id_resident=<?= $view['id_resident'];?>" class="btn btn-primary">  Update </a>
-                    <input type="hidden" name="id_resident" value="<?= $view['id_resident'];?>">
-                    <button class="btn btn-danger" type="submit" name="delete_resident"> Delete </button>
+                    <a href="update_student_form.php?id_student=<?= $view['id_student'];?>" class="btn btn-primary">  Update </a>
+                    <input type="hidden" name="id_student" value="<?= $view['id_student'];?>">
+                    <button class="btn btn-danger" type="submit" name="delete_student"> Delete </button>
                 </form>
                 </td>
                 <td> <?= $view['lname'];?> </td>
@@ -78,9 +78,9 @@
 			<tr>
 			<td>    
                 <form action="" method="post">
-                <a href="update_resident_form.php?id_resident=<?= $view['id_resident'];?>" class="btn btn-primary">  Update </a>
-                <input type="hidden" name="id_resident" value="<?= $view['id_resident'];?>">
-                <button class="btn btn-danger" type="submit" name="delete_resident"> Delete </button>
+                <a href="update_student_form.php?id_student=<?= $view['id_student'];?>" class="btn btn-primary">  Update </a>
+                <input type="hidden" name="id_student" value="<?= $view['id_student'];?>">
+                <button class="btn btn-danger" type="submit" name="delete_student"> Delete </button>
                  </form>
             </td>
             <td> <?= $view['lname'];?> </td>

@@ -1,7 +1,7 @@
 <?php
     error_reporting(E_ALL ^ E_WARNING);
     ini_set('display_errors', 0);
-    require('classes/resident.class.php');
+    require('classes/student.class.php');
     $userdetails = $eusebia->get_userdata();
     $eusebia->validate_admin();
 
@@ -37,11 +37,12 @@
     if ($grade && isset($grade_map[$grade])) {
         $grade_info = $grade_map[$grade];
         $table = $grade_info['table'];
+        try { $conn->exec("ALTER TABLE $table ADD COLUMN enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"); } catch (PDOException $e) {}
         if ($school_year) {
-            $stmt = $conn->prepare("SELECT * FROM $table WHERE (is_archived = 0 OR is_archived IS NULL) AND sy = ? ORDER BY lname, fname");
+            $stmt = $conn->prepare("SELECT * FROM $table WHERE (is_archived = 0 OR is_archived IS NULL) AND enrollment_status = 'Approved' AND sy = ? ORDER BY lname, fname");
             $stmt->execute([$school_year]);
         } else {
-            $stmt = $conn->prepare("SELECT * FROM $table WHERE (is_archived = 0 OR is_archived IS NULL) ORDER BY lname, fname");
+            $stmt = $conn->prepare("SELECT * FROM $table WHERE (is_archived = 0 OR is_archived IS NULL) AND enrollment_status = 'Approved' ORDER BY lname, fname");
             $stmt->execute();
         }
         $students = $stmt->fetchAll();

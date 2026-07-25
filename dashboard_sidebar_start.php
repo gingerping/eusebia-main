@@ -31,7 +31,7 @@
     <link href="css/sb-admin-2.min.css" rel="stylesheet">
     <script src="https://kit.fontawesome.com/67a9b7069e.js" crossorigin="anonymous"></script>
     <style>
-        /* Sidebar - Resident Color Theme (#0b2b5c / #0f3b7a) */
+        /* Sidebar - Student Color Theme (#0b2b5c / #0f3b7a) */
         #accordionSidebar {
             background: linear-gradient(135deg, #0b2b5c 0%, #0f3b7a 100%) !important;
         }
@@ -57,6 +57,79 @@
         }
         #sidebarToggle:hover {
             background: rgba(255, 255, 255, 0.35) !important;
+        }
+
+        /* ===== Row "Actions" dropdown — Facebook-menu style ===== */
+        .actions-dropdown-toggle {
+            border-radius: 8px !important;
+            font-weight: 600;
+            padding: .4rem .9rem !important;
+        }
+        .actions-dropdown-menu {
+            min-width: 240px;
+            padding: .5rem;
+            border: none;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 12px 32px rgba(11, 43, 92, 0.18), 0 2px 10px rgba(0,0,0,0.10);
+        }
+        .actions-dropdown-menu .actions-dropdown-header {
+            font-weight: 700;
+            font-size: .72rem;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: #90959c;
+            padding: .4rem .6rem .35rem;
+        }
+        .actions-dropdown-menu .actions-dropdown-body {
+            padding: 0;
+        }
+        .actions-dropdown-menu .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            padding: .5rem .55rem;
+            border-radius: 10px;
+            font-size: .95rem;
+            font-weight: 600;
+            color: #050505;
+            transition: background .12s ease;
+        }
+        .actions-dropdown-menu .dropdown-item .action-icon-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+            border-radius: 50%;
+            background: #f0f2f5;
+            color: #444950;
+            font-size: 1rem;
+        }
+        .actions-dropdown-menu .dropdown-item.item-view .action-icon-badge   { background: #e7f3ff; color: #1877f2; }
+        .actions-dropdown-menu .dropdown-item.item-archive .action-icon-badge { background: #f0f2f5; color: #65676b; }
+        .actions-dropdown-menu .dropdown-item.item-approve .action-icon-badge { background: #e3f6e8; color: #1a9c4b; }
+        .actions-dropdown-menu .dropdown-item.item-reject .action-icon-badge  { background: #fde8e8; color: #e0245e; }
+        .actions-dropdown-menu .dropdown-item:hover,
+        .actions-dropdown-menu .dropdown-item:focus {
+            background: #f2f2f2;
+            color: #050505;
+            text-decoration: none;
+        }
+        .actions-dropdown-menu .dropdown-item.text-danger:hover { background: #fdecec; }
+        .actions-dropdown-menu form { margin: 0; }
+        .actions-dropdown-menu .dropdown-divider {
+            margin: .35rem .5rem;
+            border-color: #edf0f5;
+        }
+        .actions-dropdown-menu.dropdown-menu-floating {
+            position: fixed !important;
+            margin: 0 !important;
+            transform: none !important;
+            z-index: 3050 !important;
+            max-height: 80vh;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -86,7 +159,7 @@
                     <span>Dashboard</span></a>
             </li>
                                         <li class="nav-item">
-                <a class="nav-link" href="admn_residents.php">
+                <a class="nav-link" href="admn_students.php">
                     <span>Accounts</span></a>
             </li>
 
@@ -201,6 +274,59 @@
                                 </form>
                             </div>
                         </li>
+
+                        <?php
+                            $pendingData = (isset($eusebia) && method_exists($eusebia, 'get_pending_enrollees'))
+                                ? $eusebia->get_pending_enrollees()
+                                : ['total' => 0, 'items' => []];
+                        ?>
+
+                        <div class="topbar-divider d-none d-sm-block"></div>
+
+                        <!-- Nav Item - Pending Enrollment Notification -->
+                        <li class="nav-item dropdown no-arrow mx-1">
+                            <a class="nav-link dropdown-toggle" href="#" id="pendingApprovalsDropdown" role="button"
+                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <i class="fas fa-bell fa-fw"></i>
+                                <?php if (!empty($pendingData['total'])): ?>
+                                <span class="badge badge-danger badge-counter"><?= $pendingData['total'] > 99 ? '99+' : (int) $pendingData['total'] ?></span>
+                                <?php endif; ?>
+                            </a>
+                            <!-- Dropdown - Pending Enrollment -->
+                            <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in"
+                                aria-labelledby="pendingApprovalsDropdown" style="max-height:26rem; overflow-y:auto;">
+                                <h6 class="dropdown-header">
+                                    <?= (int) $pendingData['total'] ?> Pending Enrollment<?= $pendingData['total'] == 1 ? '' : 's' ?>
+                                </h6>
+                                <?php if (empty($pendingData['items'])): ?>
+                                <div class="dropdown-item text-center text-gray-500 py-3">
+                                    <i class="fas fa-check-circle text-success mr-1"></i> All caught up, no pending enrollees.
+                                </div>
+                                <?php else: ?>
+                                    <?php foreach ($pendingData['items'] as $item): ?>
+                                    <a class="dropdown-item d-flex align-items-center" href="<?= htmlspecialchars($item['link']) ?>">
+                                        <div class="mr-3">
+                                            <div class="icon-circle bg-warning">
+                                                <i class="fas fa-user-clock text-white"></i>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="small text-gray-500">
+                                                <?= htmlspecialchars($item['grade']) ?><?= $item['sy'] ? ' &middot; S.Y. ' . htmlspecialchars($item['sy']) : '' ?>
+                                            </div>
+                                            <span class="font-weight-bold"><?= htmlspecialchars($item['name']) ?></span>
+                                            <div class="small text-warning">Awaiting approval / rejection</div>
+                                        </div>
+                                    </a>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                                <?php if (!empty($pendingData['total'])): ?>
+                                <a class="dropdown-item text-center small text-gray-500" href="admn_dashboard.php">Go to Dashboard</a>
+                                <?php endif; ?>
+                            </div>
+                        </li>
+
+                        <div class="topbar-divider d-none d-sm-block"></div>
 
                         <!-- Nav Item - User Information -->
                             <li class="nav-item dropdown">

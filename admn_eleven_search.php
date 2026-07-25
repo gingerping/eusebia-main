@@ -1,4 +1,4 @@
-<?php require 'classes/conn.php'; ?>
+<?php require 'classes/conn.php'; require_once 'classes/ai_review_ui.php'; ?>
 
 <!-- ===== DOCUMENT VIEWER MODAL ===== -->
 <div class="modal fade" id="docViewerModal" tabindex="-1" role="dialog" aria-labelledby="docViewerTitle" aria-hidden="true">
@@ -73,6 +73,15 @@
 
 function renderDocs_eleven($docsJson) {
     $docs = json_decode($docsJson ?? '[]', true);
+    if (is_array($docs) && array_key_exists('admin_marked', $docs)) {
+        if ($docs['admin_marked'] === 'Incomplete') {
+            echo '<span class="badge badge-warning" title="' . htmlspecialchars($docs['note'] ?? '') . '"><i class="fas fa-exclamation-triangle mr-1"></i>Incomplete</span>';
+            if (!empty($docs['note'])) echo '<br><span class="text-muted small">' . htmlspecialchars($docs['note']) . '</span>';
+        } else {
+            echo '<span class="badge badge-success"><i class="fas fa-check mr-1"></i>Complete (added by admin)</span>';
+        }
+        return;
+    }
     if (empty($docs)) { echo '<span class="text-muted small">No documents</span>'; return; }
     foreach ($docs as $docPath) {
         $fileName = basename($docPath);
@@ -98,124 +107,84 @@ function renderStatus_eleven($status) {
     echo '<span class="status-badge '.$c.'"><i class="fas '.$i.' mr-1"></i>'.htmlspecialchars($status).'</span>';
 }
 
-function renderActions_eleven($id_col_val, $id_resident, $status, $fname, $lname, $mi, $prefix = '') {
+function renderActions_eleven($id_col_val, $id_student, $status, $fname, $lname, $mi, $prefix = '') {
     $fullName = htmlspecialchars($lname.', '.$fname.' '.$mi);
-    $modalId  = 'viewModal'.$prefix.$id_resident;
+    $modalId  = 'viewModal'.$prefix.$id_student;
+    $ddId     = 'actionsDd'.$prefix.$id_col_val;
     ?>
-    <button type="button" class="btn btn-success btn-sm mb-1"
-        data-toggle="modal" data-target="#<?= $modalId ?>">
-        <i class="fa fa-eye"></i> View
-    </button>
-    <form action="" method="post" style="display:inline;">
-        <input type="hidden" name="id_eleven" value="<?= $id_col_val ?>">
-        <button class="btn btn-secondary btn-sm mb-1" type="submit" name="delete_eleven" style="border-radius:30px;">
-            <i class="fas fa-archive mr-1"></i>Archive
+    <div class="dropdown">
+        <button class="btn btn-outline-primary btn-sm dropdown-toggle actions-dropdown-toggle" type="button"
+            id="<?= $ddId ?>" data-toggle="dropdown" data-display="static" aria-haspopup="true" aria-expanded="false">
+            <i class="fas fa-ellipsis-v"></i> Actions
         </button>
-    </form>
-    <?php if ($status !== 'Approved' && $status !== 'Rejected'): ?>
-        <form action="" method="post" style="display:inline;" onsubmit="return confirmApprove_eleven(this);">
-            <input type="hidden" name="id_eleven" value="<?= $id_col_val ?>">
-            <input type="hidden" name="approve_eleven" value="1">
-            <button class="btn btn-primary btn-sm mb-1" type="submit" style="border-radius:30px;">
-                <i class="fas fa-check-circle mr-1"></i>Approve
-            </button>
-        </form>
-        <button type="button" class="btn btn-danger btn-sm mb-1" style="border-radius:30px;"
-            onclick="openRejectModal_eleven(<?= $id_col_val ?>, '<?= addslashes($fullName) ?>')">
-            <i class="fas fa-times-circle mr-1"></i>Reject
-        </button>
-    <?php elseif ($status === 'Approved'): ?>
-        <span class="status-badge status-approved"><i class="fas fa-check-circle mr-1"></i>Approved</span>
-    <?php elseif ($status === 'Rejected'): ?>
-        <form action="" method="post" style="display:inline;" onsubmit="return confirmApprove_eleven(this);">
-            <input type="hidden" name="id_eleven" value="<?= $id_col_val ?>">
-            <input type="hidden" name="approve_eleven" value="1">
-            <button class="btn btn-primary btn-sm mb-1" type="submit" style="border-radius:30px;">
-                <i class="fas fa-check-circle mr-1"></i>Approve
-            </button>
-        </form>
-        <span class="status-badge status-rejected"><i class="fas fa-times-circle mr-1"></i>Rejected</span>
-    <?php endif;
+        <div class="dropdown-menu dropdown-menu-right actions-dropdown-menu" aria-labelledby="<?= $ddId ?>" data-boundary="window">
+            <div class="actions-dropdown-header">Actions</div>
+            <div class="actions-dropdown-body">
+
+            <a class="dropdown-item item-view" href="#" data-toggle="modal" data-target="#<?= $modalId ?>">
+                <span class="action-icon-badge"><i class="fa fa-eye"></i></span>View
+            </a>
+
+            <form action="" method="post">
+                <input type="hidden" name="id_eleven" value="<?= $id_col_val ?>">
+                <button class="dropdown-item item-archive" type="submit" name="delete_eleven">
+                    <span class="action-icon-badge"><i class="fas fa-archive"></i></span>Archive
+                </button>
+            </form>
+
+            <?php if ($status !== 'Approved' && $status !== 'Rejected'): ?>
+                <div class="dropdown-divider"></div>
+                <form action="" method="post" onsubmit="return confirmApprove_eleven(this);">
+                    <input type="hidden" name="id_eleven" value="<?= $id_col_val ?>">
+                    <input type="hidden" name="approve_eleven" value="1">
+                    <button class="dropdown-item item-approve" type="submit">
+                        <span class="action-icon-badge"><i class="fas fa-check"></i></span>Approve
+                    </button>
+                </form>
+                <button class="dropdown-item item-reject" type="button"
+                    onclick="openRejectModal_eleven(<?= $id_col_val ?>, '<?= addslashes($fullName) ?>')">
+                    <span class="action-icon-badge"><i class="fas fa-times"></i></span>Reject
+                </button>
+            <?php elseif ($status === 'Rejected'): ?>
+                <div class="dropdown-divider"></div>
+                <form action="" method="post" onsubmit="return confirmApprove_eleven(this);">
+                    <input type="hidden" name="id_eleven" value="<?= $id_col_val ?>">
+                    <input type="hidden" name="approve_eleven" value="1">
+                    <button class="dropdown-item item-approve" type="submit">
+                        <span class="action-icon-badge"><i class="fas fa-check"></i></span>Approve
+                    </button>
+                </form>
+            <?php endif; ?>
+
+            </div>
+        </div>
+    </div>
+<?php
 }
 
 ?>
 
-<?php if (isset($_POST['search_eleven'])): $keyword = $_POST['keyword']; ?>
 
-<!-- ===== SEARCH RESULTS TABLE ===== -->
-<div class="table-responsive" style="width:100%;overflow-x:auto;">
-    <table class="table table-hover text-center table-bordered" style="min-width:1200px;">
-        <thead class="alert-info">
-            <tr>
-                <th>LRN</th><th>Course</th><th>Full Name</th><th>Birthday</th><th>Age</th>
-                <th>Contact</th><th>Email</th><th>Documents</th><th>Status</th><th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-        <?php
-            $kw   = "%$keyword%";
-            $stmt = $conn->prepare("SELECT * FROM `tbl_eleven` WHERE `lname` LIKE ? OR `fname` LIKE ? OR `id_resident` LIKE ? OR `lrn` LIKE ?");
-            $stmt->execute([$kw, $kw, $kw, $kw]);
-            while ($view = $stmt->fetch()):
-                $sStatus = $view['enrollment_status'] ?? 'Pending';
-        ?>
-        <tr>
-            <td><?= htmlspecialchars($view['lrn']) ?></td>
-            <td><?= htmlspecialchars($view['course']) ?></td>
-            <td><?= htmlspecialchars($view['lname']) ?>, <?= htmlspecialchars($view['fname']) ?> <?= htmlspecialchars($view['mi']) ?></td>
-            <td><?= htmlspecialchars($view['bdate']) ?></td>
-            <td><?= htmlspecialchars($view['age']) ?></td>
-            <td><?= htmlspecialchars($view['contact']) ?></td>
-            <td><?= htmlspecialchars($view['email']) ?></td>
-            <td style="min-width:145px;"><?php renderDocs_eleven($view['documents'] ?? ''); ?></td>
-            <td><?php renderStatus_eleven($sStatus); ?></td>
-            <td style="min-width:220px;">
-                <?php renderActions_eleven($view['id_eleven'], $view['id_resident'], $sStatus,
-                    $view['fname'], $view['lname'], $view['mi'], 'Srch'); ?>
-            </td>
-        </tr>
+<!-- ===== ENROLLEES TABLE (card, matches staff view style) ===== -->
+<div class="card shadow-sm">
+    <div class="card-header py-2 d-flex align-items-center justify-content-between"
+         style="background:linear-gradient(135deg,#0b2b5c,#1f5a9e);">
+        <span class="text-white font-weight-bold">
+            <i class="fas fa-table mr-1"></i> Grade 11 Enrollees
+        </span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered table-sm mb-0" id="studentsTable" style="font-size:.84rem;">
+                <thead class="thead-dark text-center">
+                    <tr>
+                        <th>LRN</th><th>Course</th><th>Full Name</th><th>Birthday</th><th>Age</th>
+                        <th>Contact</th><th>Email</th><th>Documents</th><th>AI Review</th><th>Status</th><th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-center">
 
-        <!-- View Modal (search) -->
-        <div class="modal fade" id="viewModalSrch<?= $view['id_resident'] ?>" tabindex="-1" role="dialog" aria-hidden="true">
-            <div class="modal-dialog modal-md modal-dialog-centered" role="document">
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title">Student Profile: <?= htmlspecialchars($view['fname']) ?></h5>
-                        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
-                    </div>
-                    <div class="modal-body text-left">
-                        <p><strong>LRN:</strong> <?= htmlspecialchars($view['lrn']) ?></p>
-                        <p><strong>Full Name:</strong> <?= htmlspecialchars($view['lname']) ?>, <?= htmlspecialchars($view['fname']) ?> <?= htmlspecialchars($view['mi']) ?></p>
-                        <p><strong>Age:</strong> <?= htmlspecialchars($view['age']) ?></p>
-                        <p><strong>Email:</strong> <?= htmlspecialchars($view['email']) ?></p>
-                        <p><strong>Status:</strong> <?php renderStatus_eleven($sStatus); ?></p>
-                        <?php if ($sStatus === 'Rejected' && !empty($view['reject_reason'])): ?>
-                        <p><strong>Rejection Reason:</strong> <?= htmlspecialchars($view['reject_reason']) ?></p>
-                        <?php endif; ?>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <?php endwhile; ?>
-        </tbody>
-    </table>
-</div>
 
-<?php else: // DEFAULT VIEW ?>
-
-<!-- ===== DEFAULT TABLE ===== -->
-<div class="table-responsive" style="width:100%;overflow-x:auto;">
-    <table class="table table-hover text-center table-bordered" style="min-width:1200px;">
-        <thead class="alert-info">
-            <tr>
-                <th>LRN</th><th>Course</th><th>Full Name</th><th>Birthday</th><th>Age</th>
-                <th>Contact</th><th>Email</th><th>Documents</th><th>Status</th><th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
     <?php if (is_array($view)): foreach ($view as $row):
         $rStatus = $row['enrollment_status'] ?? 'Pending';
     ?>
@@ -228,15 +197,16 @@ function renderActions_eleven($id_col_val, $id_resident, $status, $fname, $lname
             <td><?= htmlspecialchars($row['contact']) ?></td>
             <td><?= htmlspecialchars($row['email']) ?></td>
             <td style="min-width:145px;"><?php renderDocs_eleven($row['documents'] ?? ''); ?></td>
+            <td style="min-width:150px;"><?php render_ai_review_cell($row['ai_analysis'] ?? null, 'eleven', $row['id_eleven']); ?></td>
             <td><?php renderStatus_eleven($rStatus); ?></td>
             <td style="min-width:220px;">
-                <?php renderActions_eleven($row['id_eleven'], $row['id_resident'], $rStatus,
+                <?php renderActions_eleven($row['id_eleven'], $row['id_student'], $rStatus,
                     $row['fname'], $row['lname'], $row['mi']); ?>
             </td>
         </tr>
 
         <!-- View Modal (default) -->
-        <div class="modal fade" id="viewModal<?= $row['id_resident'] ?>" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal fade" id="viewModal<?= $row['id_student'] ?>" tabindex="-1" role="dialog" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered" role="document">
                 <div class="modal-content">
                     <div class="modal-header bg-primary text-white">
@@ -283,12 +253,24 @@ function renderActions_eleven($id_col_val, $id_resident, $status, $fname, $lname
                 </div>
             </div>
         </div>
-    <?php endforeach; endif; ?>
-        </tbody>
-    </table>
+    <?php endforeach; else: ?>
+                <tr><td colspan="11" class="text-center text-muted py-4">No students found.</td></tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
-<?php endif; $conn = null; ?>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap4.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap4.min.js"></script>
+<script>
+$(document).ready(function(){
+    $('#studentsTable').DataTable({ pageLength: 20, order: [[1,'asc']] });
+});
+</script>
+
 
 <script>
 function openDocViewer(path, name, type) {

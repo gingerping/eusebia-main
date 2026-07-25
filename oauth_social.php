@@ -149,57 +149,57 @@ if (!$social_id) {
 }
 
 // ─────────────────────────────────────────────
-// ③  DATABASE — look up or create resident
+// ③  DATABASE — look up or create student
 // ─────────────────────────────────────────────
 /*
- * You need a column in tbl_resident (or a separate table) to store the
+ * You need a column in tbl_student (or a separate table) to store the
  * social provider ID.  Run this SQL once in your database:
  *
- *   ALTER TABLE tbl_resident
+ *   ALTER TABLE tbl_student
  *     ADD COLUMN social_provider   VARCHAR(20)  NULL,
  *     ADD COLUMN social_id         VARCHAR(128) NULL,
  *     ADD COLUMN social_avatar_url VARCHAR(512) NULL,
  *     ADD UNIQUE KEY uq_social (social_provider, social_id);
  *
- * Adjust tbl_resident and column names to match your actual schema.
+ * Adjust tbl_student and column names to match your actual schema.
  */
 
 try {
     // 1. Try to find by (provider, social_id)
     $stmt = $conn->prepare("
-        SELECT * FROM tbl_resident
+        SELECT * FROM tbl_student
         WHERE social_provider = ? AND social_id = ?
         LIMIT 1
     ");
     $stmt->execute([$provider_key, $social_id]);
-    $resident = $stmt->fetch(PDO::FETCH_ASSOC);
+    $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // 2. If not found by social ID, try by email (link accounts)
-    if (!$resident && $email) {
+    if (!$student && $email) {
         $stmt = $conn->prepare("
-            SELECT * FROM tbl_resident WHERE email = ? LIMIT 1
+            SELECT * FROM tbl_student WHERE email = ? LIMIT 1
         ");
         $stmt->execute([$email]);
-        $resident = $stmt->fetch(PDO::FETCH_ASSOC);
+        $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
         // Link the social ID to the existing account
-        if ($resident) {
+        if ($student) {
             $stmt = $conn->prepare("
-                UPDATE tbl_resident
+                UPDATE tbl_student
                 SET social_provider = ?, social_id = ?, social_avatar_url = ?
                 WHERE id = ?
             ");
-            $stmt->execute([$provider_key, $social_id, $avatar, $resident['id']]);
+            $stmt->execute([$provider_key, $social_id, $avatar, $student['id']]);
         }
     }
 
-    // 3. Auto-register new resident (basic profile — they can complete later)
-    if (!$resident) {
+    // 3. Auto-register new student (basic profile — they can complete later)
+    if (!$student) {
         // Generate a random unguessable password (they won't use it; social login only)
         $random_pass = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
 
         $stmt = $conn->prepare("
-            INSERT INTO tbl_resident
+            INSERT INTO tbl_student
                 (firstname, lastname, email, password, social_provider, social_id, social_avatar_url)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
@@ -214,12 +214,12 @@ try {
         ]);
 
         $new_id   = $conn->lastInsertId();
-        $stmt     = $conn->prepare("SELECT * FROM tbl_resident WHERE id = ? LIMIT 1");
+        $stmt     = $conn->prepare("SELECT * FROM tbl_student WHERE id = ? LIMIT 1");
         $stmt->execute([$new_id]);
-        $resident = $stmt->fetch(PDO::FETCH_ASSOC);
+        $student = $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    if (!$resident) {
+    if (!$student) {
         redirect_with_error('Account setup failed. Please try again.');
     }
 
@@ -227,13 +227,13 @@ try {
     // ④  SET SESSION and redirect
     // ─────────────────────────────────────────────
     // Mirror whatever set_userdata() does in main.class.php
-    $_SESSION['user_id']     = $resident['id'];
-    $_SESSION['user_email']  = $resident['email']     ?? $email;
-    $_SESSION['user_name']   = ($resident['firstname'] ?? $given_name) . ' ' . ($resident['lastname'] ?? $family_name);
-    $_SESSION['user_type']   = 'resident';
+    $_SESSION['user_id']     = $student['id'];
+    $_SESSION['user_email']  = $student['email']     ?? $email;
+    $_SESSION['user_name']   = ($student['firstname'] ?? $given_name) . ' ' . ($student['lastname'] ?? $family_name);
+    $_SESSION['user_type']   = 'student';
     $_SESSION['social_auth'] = $provider_key;
 
-    header('Location: resident_dashboard.php');
+    header('Location: student_dashboard.php');
     exit;
 
 } catch (PDOException $e) {

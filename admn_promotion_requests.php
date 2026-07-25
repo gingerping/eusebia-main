@@ -1,7 +1,7 @@
 <?php
 error_reporting(E_ALL ^ E_WARNING);
 ini_set('display_errors', 0);
-require('classes/resident.class.php');
+require('classes/student.class.php');
 
 $userdetails = $eusebia->get_userdata();
 $eusebia->validate_admin();
@@ -128,7 +128,7 @@ unset($_SESSION['swal']);
                             <td><?= $i + 1 ?></td>
                             <td>
                                 <strong><?= htmlspecialchars(trim(($r['lname'] ?? '') . ', ' . ($r['fname'] ?? '') . ' ' . ($r['mi'] ?? ''))) ?></strong>
-                                <br><small class="text-muted">Resident #<?= $r['id_resident'] ?></small>
+                                <br><small class="text-muted">Student #<?= $r['id_student'] ?></small>
                             </td>
                             <td>Grade <?= htmlspecialchars($r['from_grade']) ?></td>
                             <td>Grade <?= htmlspecialchars($r['to_grade']) ?></td>

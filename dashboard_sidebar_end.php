@@ -35,6 +35,49 @@
     <!-- PWA -->
     <script src="js/pwa.js"></script>
 
+    <!--
+        Fix: Bootstrap dropdown menus (e.g. the "Actions" menu in student tables)
+        were getting clipped/cut off by the scrollable .table-responsive wrapper,
+        and Bootstrap's own Popper positioning kept fighting our fix. Each toggle
+        now has data-display="static" so Popper never touches these menus — we
+        fully control their position ourselves, switching them to `position: fixed`
+        computed from the toggle button's on-screen coordinates so they float on
+        top of the table (like a native <select>) instead of getting clipped.
+    -->
+    <script>
+    $(document).on('shown.bs.dropdown', '.dropdown', function () {
+        var $menu   = $(this).find('.dropdown-menu').first();
+        var $toggle = $(this).find('[data-toggle="dropdown"]').first();
+        if (!$menu.length || !$toggle.length) return;
+
+        $menu.addClass('dropdown-menu-floating');
+
+        var rect = $toggle[0].getBoundingClientRect();
+        var menuWidth = $menu.outerWidth();
+
+        var left = rect.right - menuWidth;
+        if (left < 4) left = 4; // don't run off the left edge of the screen
+
+        var top = rect.bottom + 2;
+        // If there isn't enough room below, open the menu upward instead
+        var menuHeight = $menu.outerHeight();
+        if (top + menuHeight > window.innerHeight && rect.top - menuHeight > 0) {
+            top = rect.top - menuHeight - 2;
+        }
+
+        $menu.css({ top: top + 'px', left: left + 'px', right: 'auto' });
+    });
+
+    $(document).on('hidden.bs.dropdown', '.dropdown', function () {
+        $(this).find('.dropdown-menu').removeClass('dropdown-menu-floating').css({ top: '', left: '', right: '' });
+    });
+
+    // Reposition while the dropdown is open if the page is scrolled/resized
+    $(window).on('scroll resize', function () {
+        $('.dropdown').has('.dropdown-menu.show').trigger('shown.bs.dropdown');
+    });
+    </script>
+
 </body>
 
 </html>

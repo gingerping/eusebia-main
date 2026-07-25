@@ -2,22 +2,23 @@
     session_start();
     error_reporting(E_ALL ^ E_WARNING);
     ini_set('display_errors', 0);
-    require('classes/resident.class.php');
+    require('classes/student.class.php');
     $userdetails = $eusebia->get_userdata();
     $eusebia->validate_admin();
     $eusebia->delete_twelve();
     $eusebia->approve_twelve();
     $eusebia->reject_twelve();
+    $eusebia->admin_add_enrollee('twelve');
     $current_sort  = isset($_GET['sort'])  ? $_GET['sort']  : 'lname';
     $current_order = isset($_GET['order']) ? $_GET['order'] : 'ASC';
     $view = $eusebia->view_twelve($current_sort, $current_order);
-    $id_resident = $_GET['id_resident'] ?? null;
-    $resident    = $id_resident ? $residenteusebia->get_single_twelve($id_resident) : null;
-    $stem_count  = $residenteusebia->count_by_grade('tbl_twelve', 'course', 'STEM');
-    $abm_count   = $residenteusebia->count_by_grade('tbl_twelve', 'course', 'ABM');
-    $gas_count   = $residenteusebia->count_by_grade('tbl_twelve', 'course', 'GAS');
-    $ict_count   = $residenteusebia->count_by_grade('tbl_twelve', 'course', 'TVL-ICT');
-    $he_count    = $residenteusebia->count_by_grade('tbl_twelve', 'course', 'TVL-HE');
+    $id_student = $_GET['id_student'] ?? null;
+    $student    = $id_student ? $studenteusebia->get_single_twelve($id_student) : null;
+    $stem_count  = $studenteusebia->count_by_grade('tbl_twelve', 'course', 'STEM');
+    $abm_count   = $studenteusebia->count_by_grade('tbl_twelve', 'course', 'ABM');
+    $gas_count   = $studenteusebia->count_by_grade('tbl_twelve', 'course', 'GAS');
+    $ict_count   = $studenteusebia->count_by_grade('tbl_twelve', 'course', 'TVL-ICT');
+    $he_count    = $studenteusebia->count_by_grade('tbl_twelve', 'course', 'TVL-HE');
 ?>
 <?php include('dashboard_sidebar_start.php'); ?>
 
@@ -30,9 +31,30 @@
 
 <div class="container-fluid">
 
-    <div class="row">
-        <div class="col text-center">
-            <h1>GRADE 12 ENROLLEES</h1>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h4 class="mb-0 font-weight-bold text-dark">
+                <i class="fas fa-users mr-2" style="color:#0b2b5c;"></i>Grade 12 — Student List
+            </h4>
+            <small class="text-muted">
+                All enrollees &nbsp;|&nbsp; <?= is_array($view) ? count($view) : 0 ?> student(s)
+            </small>
+        </div>
+        <div>
+            <?php
+                $grade = 'twelve'; $gradeNumber = '12'; $hasCourse = true; $courseLabel = 'Strand';
+                $courseOptions = [
+                    'STEM'    => 'STEM (Science, Technology, Engineering, and Mathematics)',
+                    'ABM'     => 'ABM (Accountancy, Business, and Management)',
+                    'GAS'     => 'GAS (General Academic Strand)',
+                    'TVL-ICT' => 'TVL-ICT (Information and Communication Technology)',
+                    'TVL-HE'  => 'TVL-HE (Home Economics)',
+                ];
+                include('admn_add_enrollee_modal.php');
+            ?>
+            <a href="admn_classlist.php?grade=twelve" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-print mr-1"></i> Class List
+            </a>
         </div>
     </div>
 
@@ -67,21 +89,6 @@
     </div>
 
     <br>
-
-    <div class="row">
-        <div class="col">
-            <form method="POST">
-                <div class="input-icons">
-                    <i class="fa fa-search icon"></i>
-                    <input type="search" class="form-control" name="keyword" value="" required="" style="border-radius:30px;"/>
-                </div>
-                <button class="btn btn-success" name="search_twelve" style="width:90px;font-size:17px;border-radius:30px;margin-left:41.5%;">Search</button>
-                <a href="admn_twelve.php" class="btn btn-info" style="width:90px;font-size:17px;border-radius:30px;">Reload</a>
-                <a href="admn_classlist.php?grade=twelve" class="btn btn-secondary ml-2" style="font-size:15px;border-radius:30px;"><i class="fas fa-print mr-1"></i> Class List</a>
-            </form>
-            <br>
-        </div>
-    </div>
 
     <form method="GET" action="admn_twelve.php" class="d-inline ml-3">
         <span class="small font-weight-bold text-gray-600">Sort:</span>

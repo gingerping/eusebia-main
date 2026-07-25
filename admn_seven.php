@@ -2,15 +2,16 @@
     session_start();
     ini_set('display_errors', 1);
     error_reporting(E_ALL);
-    require('classes/resident.class.php');
+    require('classes/student.class.php');
     $userdetails = $eusebia->get_userdata();
     $eusebia->validate_admin();
     $eusebia->delete_seven();
     $eusebia->approve_seven();
     $eusebia->reject_seven();
+    $eusebia->admin_add_enrollee('seven');
     $view = $eusebia->view_seven();
-    $id_resident = $_GET['id_resident'] ?? null;
-    $resident = $id_resident ? $residenteusebia->get_single_seven($id_resident) : null;
+    $id_student = $_GET['id_student'] ?? null;
+    $student = $id_student ? $studenteusebia->get_single_seven($id_student) : null;
 ?>
 <?php 
     include('dashboard_sidebar_start.php');
@@ -26,30 +27,25 @@
 <!-- Begin Page Content -->
 <div class="container-fluid">
 
-    <div class="row">
-        <div class="col text-center">
-            <h1>GRADE 7 ENROLLEES</h1>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h4 class="mb-0 font-weight-bold text-dark">
+                <i class="fas fa-users mr-2" style="color:#0b2b5c;"></i>Grade 7 — Student List
+            </h4>
+            <small class="text-muted">
+                All enrollees &nbsp;|&nbsp; <?= is_array($view) ? count($view) : 0 ?> student(s)
+            </small>
+        </div>
+        <div>
+            <?php
+                $grade = 'seven'; $gradeNumber = '7'; $hasCourse = false;
+                include('admn_add_enrollee_modal.php');
+            ?>
+            <a href="admn_classlist.php?grade=seven" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-print mr-1"></i> Class List
+            </a>
         </div>
     </div>
-
-    <hr><br><br>
-
-    <div class="row">
-        <div class="col">
-            <form method="POST">
-                <div class="input-icons">
-                    <i class="fa fa-search icon"></i>
-                    <input type="search" class="form-control" name="keyword" value="" required="" style="border-radius:30px;"/>
-                </div>
-                <button class="btn btn-success" name="search_seven" style="width:90px;font-size:17px;border-radius:30px;margin-left:41.5%;">Search</button>
-                <a href="admn_seven.php" class="btn btn-info" style="width:90px;font-size:17px;border-radius:30px;">Reload</a>
-                <a href="admn_classlist.php?grade=seven" class="btn btn-secondary ml-2" style="font-size:15px;border-radius:30px;"><i class="fas fa-print mr-1"></i> Class List</a>
-            </form>
-            <br>
-        </div>
-    </div>
-
-    <br>
 
     <div class="row">
         <div class="col-md-12">

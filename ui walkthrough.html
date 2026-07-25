@@ -17,7 +17,7 @@
   --surface: #ffffff;
   --border: rgba(11,43,92,0.12);
   --admin-accent: #1a4a8a;
-  --resident-accent: #0e7c59;
+  --student-accent: #0e7c59;
   --sys-accent: #7b3fa0;
   --radius: 14px;
   --shadow: 0 4px 32px rgba(11,43,92,0.10);
@@ -188,7 +188,7 @@ body {
   margin-bottom: 0.75rem;
 }
 .tag-admin    { background: rgba(26,74,138,0.12); color: var(--admin-accent); }
-.tag-resident { background: rgba(14,124,89,0.12); color: var(--resident-accent); }
+.tag-student { background: rgba(14,124,89,0.12); color: var(--student-accent); }
 .tag-system   { background: rgba(123,63,160,0.12); color: var(--sys-accent); }
 .tag-auth     { background: rgba(200,60,60,0.10); color: #b83535; }
 
@@ -269,7 +269,7 @@ body {
   margin-bottom: 0.75rem;
 }
 .icon-admin    { background: rgba(26,74,138,0.1); }
-.icon-resident { background: rgba(14,124,89,0.1); }
+.icon-student { background: rgba(14,124,89,0.1); }
 .icon-sys      { background: rgba(123,63,160,0.1); }
 .icon-auth     { background: rgba(200,60,60,0.08); }
 .fn-name {
@@ -318,7 +318,7 @@ body {
   border-radius: 8px;
   white-space: nowrap;
 }
-.flow-node.green  { background: var(--resident-accent); }
+.flow-node.green  { background: var(--student-accent); }
 .flow-node.purple { background: var(--sys-accent); }
 .flow-node.gold   { background: #c89a10; color: white; }
 .flow-node.red    { background: #b83535; }
@@ -398,7 +398,7 @@ body {
   font-family: 'IBM Plex Mono', monospace;
 }
 .pill-admin    { background: rgba(26,74,138,0.12); color: var(--admin-accent); }
-.pill-resident { background: rgba(14,124,89,0.12); color: var(--resident-accent); }
+.pill-student { background: rgba(14,124,89,0.12); color: var(--student-accent); }
 .pill-sys      { background: rgba(123,63,160,0.12); color: var(--sys-accent); }
 
 /* ── NAV CONTROLS ── */
@@ -613,7 +613,7 @@ body {
     </div>
     <div class="step-dot" data-step="5" onclick="goTo(5)">
       <div class="dot-circle">6</div>
-      <div class="dot-label">Resident Portal</div>
+      <div class="dot-label">Student Portal</div>
     </div>
     <div class="step-dot" data-step="6" onclick="goTo(6)">
       <div class="dot-circle">7</div>
@@ -637,7 +637,7 @@ body {
 
     <div class="callout">
       <p><strong>System Name:</strong> Eusebia Paz Arroyo Memorial National High School Portal (EPAMNHS)<br>
-      Built with PHP (OOP), MySQL, Bootstrap 5, and Chart.js. Manages student enrollment data across Grades 7–12, with separate interfaces for Administrators, Staff, and Students/Residents.</p>
+      Built with PHP (OOP), MySQL, Bootstrap 5, and Chart.js. Manages student enrollment data across Grades 7–12, with separate interfaces for Administrators, Staff, and Students/Students.</p>
     </div>
 
     <div class="flow-wrap">
@@ -664,7 +664,7 @@ body {
         <div class="flow-arrow">→</div>
         <div class="flow-node green">Student?</div>
         <div class="flow-arrow">→</div>
-        <div class="flow-node green">resident_homepage.php</div>
+        <div class="flow-node green">student_homepage.php</div>
       </div>
     </div>
 
@@ -678,7 +678,7 @@ body {
       <li onclick="goTo(2)">
         <span class="toc-num">02</span>
         <span class="toc-name">Student Registration</span>
-        <span class="toc-role"><span class="badge-pill pill-resident">Students</span></span>
+        <span class="toc-role"><span class="badge-pill pill-student">Students</span></span>
       </li>
       <li onclick="goTo(3)">
         <span class="toc-num">03</span>
@@ -692,8 +692,8 @@ body {
       </li>
       <li onclick="goTo(5)">
         <span class="toc-num">05</span>
-        <span class="toc-name">Resident / Student Portal</span>
-        <span class="toc-role"><span class="badge-pill pill-resident">Students</span></span>
+        <span class="toc-name">Student / Student Portal</span>
+        <span class="toc-role"><span class="badge-pill pill-student">Students</span></span>
       </li>
       <li onclick="goTo(6)">
         <span class="toc-num">06</span>
@@ -747,7 +747,7 @@ body {
       <div class="fn-card">
         <div class="fn-icon icon-auth">🔐</div>
         <div class="fn-name">login()</div>
-        <div class="fn-desc">Accepts email/phone + password. Checks against three user tables: admin, staff, and resident. On success, stores user data in <code>$_SESSION</code> and redirects by role.</div>
+        <div class="fn-desc">Accepts email/phone + password. Checks against three user tables: admin, staff, and student. On success, stores user data in <code>$_SESSION</code> and redirects by role.</div>
         <div class="fn-file">classes/main.class.php : login()</div>
       </div>
       <div class="fn-card">
@@ -759,7 +759,7 @@ body {
       <div class="fn-card">
         <div class="fn-icon icon-auth">🚪</div>
         <div class="fn-name">logout()</div>
-        <div class="fn-desc">Destroys the active session and redirects to <code>login.php</code>. Triggered from the sidebar dropdown in both admin and resident layouts.</div>
+        <div class="fn-desc">Destroys the active session and redirects to <code>login.php</code>. Triggered from the sidebar dropdown in both admin and student layouts.</div>
         <div class="fn-file">logout.php → main.class.php : logout()</div>
       </div>
       <div class="fn-card">
@@ -775,20 +775,20 @@ body {
   <span class="code-kw">if</span> (isset(<span class="code-str">$_POST['login']</span>)) {
     <span class="code-comment">// 1. Check tbl_admin  → set session role = 'admin'</span>
     <span class="code-comment">// 2. Check tbl_staff  → set session role = 'staff'</span>
-    <span class="code-comment">// 3. Check tbl_resident → set session role = 'resident'</span>
+    <span class="code-comment">// 3. Check tbl_student → set session role = 'student'</span>
     <span class="code-comment">// 4. Redirect to appropriate dashboard</span>
   }
 }</div>
 
     <div class="callout">
-      <p><strong>Role Routing:</strong> After successful login, the system reads the matched table and routes: Admins → <code>admn_dashboard.php</code>, Staff → admin area, Students → <code>resident_homepage.php</code>.</p>
+      <p><strong>Role Routing:</strong> After successful login, the system reads the matched table and routes: Admins → <code>admn_dashboard.php</code>, Staff → admin area, Students → <code>student_homepage.php</code>.</p>
     </div>
   </div>
 
   <!-- SLIDE 2: REGISTRATION -->
   <div class="slide" id="slide-2">
-    <div class="slide-tag tag-resident">Student Registration</div>
-    <h2 class="slide-title">Resident Registration</h2>
+    <div class="slide-tag tag-student">Student Registration</div>
+    <h2 class="slide-title">Student Registration</h2>
     <p class="slide-subtitle">New students create their own portal account before logging in</p>
 
     <div class="mockup">
@@ -796,7 +796,7 @@ body {
         <div class="mock-dot md-red"></div>
         <div class="mock-dot md-yellow"></div>
         <div class="mock-dot md-green"></div>
-        <div class="mockup-url">localhost/htdocs/resident_registration.php</div>
+        <div class="mockup-url">localhost/htdocs/student_registration.php</div>
       </div>
       <div class="mockup-screen">
         <div class="ui-navbar">
@@ -834,16 +834,16 @@ body {
 
     <div class="fn-grid">
       <div class="fn-card">
-        <div class="fn-icon icon-resident">📝</div>
-        <div class="fn-name">create_resident()</div>
-        <div class="fn-desc">Handles the registration form POST. Hashes the password, validates that the email/phone is not already taken (<code>check_resident()</code>), then inserts a new record into <code>tbl_resident</code>.</div>
-        <div class="fn-file">classes/resident.class.php : create_resident()</div>
+        <div class="fn-icon icon-student">📝</div>
+        <div class="fn-name">create_student()</div>
+        <div class="fn-desc">Handles the registration form POST. Hashes the password, validates that the email/phone is not already taken (<code>check_student()</code>), then inserts a new record into <code>tbl_student</code>.</div>
+        <div class="fn-file">classes/student.class.php : create_student()</div>
       </div>
       <div class="fn-card">
-        <div class="fn-icon icon-resident">🔍</div>
-        <div class="fn-name">check_resident()</div>
-        <div class="fn-desc">Queries <code>tbl_resident</code> for an existing email or phone number. Returns a result set — if not empty, registration is blocked with a duplicate-account error.</div>
-        <div class="fn-file">classes/resident.class.php : check_resident()</div>
+        <div class="fn-icon icon-student">🔍</div>
+        <div class="fn-name">check_student()</div>
+        <div class="fn-desc">Queries <code>tbl_student</code> for an existing email or phone number. Returns a result set — if not empty, registration is blocked with a duplicate-account error.</div>
+        <div class="fn-file">classes/student.class.php : check_student()</div>
       </div>
     </div>
 
@@ -925,7 +925,7 @@ body {
       <div class="fn-card">
         <div class="fn-icon icon-admin">📢</div>
         <div class="fn-name">Announcements CRUD</div>
-        <div class="fn-desc">Admins create, edit, and delete announcements visible on the resident/student portal. Managed via <code>admn_announcement_crud.php</code>.</div>
+        <div class="fn-desc">Admins create, edit, and delete announcements visible on the student/student portal. Managed via <code>admn_announcement_crud.php</code>.</div>
         <div class="fn-file">admn_announcement_crud.php</div>
       </div>
       <div class="fn-card">
@@ -995,7 +995,7 @@ body {
       <div class="fn-card">
         <div class="fn-icon icon-admin">✏️</div>
         <div class="fn-name">update_[grade]()</div>
-        <div class="fn-desc">Updates an existing student's record by <code>id_resident</code>. Covers all editable fields including name, LRN, section, and strand. One function per grade level.</div>
+        <div class="fn-desc">Updates an existing student's record by <code>id_student</code>. Covers all editable fields including name, LRN, section, and strand. One function per grade level.</div>
         <div class="fn-file">classes/main.class.php</div>
       </div>
       <div class="fn-card">
@@ -1029,10 +1029,10 @@ body {
     </div>
   </div>
 
-  <!-- SLIDE 5: RESIDENT PORTAL -->
+  <!-- SLIDE 5: STUDENT PORTAL -->
   <div class="slide" id="slide-5">
-    <div class="slide-tag tag-resident">Student Portal</div>
-    <h2 class="slide-title">Resident / Student Homepage</h2>
+    <div class="slide-tag tag-student">Student Portal</div>
+    <h2 class="slide-title">Student / Student Homepage</h2>
     <p class="slide-subtitle">The logged-in student's personal portal: view grade records, announcements, and profile</p>
 
     <div class="mockup">
@@ -1040,7 +1040,7 @@ body {
         <div class="mock-dot md-red"></div>
         <div class="mock-dot md-yellow"></div>
         <div class="mock-dot md-green"></div>
-        <div class="mockup-url">localhost/htdocs/resident_homepage.php</div>
+        <div class="mockup-url">localhost/htdocs/student_homepage.php</div>
       </div>
       <div class="mockup-screen">
         <div class="ui-navbar">
@@ -1062,39 +1062,39 @@ body {
 
     <div class="fn-grid">
       <div class="fn-card">
-        <div class="fn-icon icon-resident">🏠</div>
-        <div class="fn-name">resident_homepage.php</div>
+        <div class="fn-icon icon-student">🏠</div>
+        <div class="fn-name">student_homepage.php</div>
         <div class="fn-desc">Main landing page after student login. Displays the current date/time, a greeting, and clickable cards for each grade level (G7–G12). Each card links to the student's own enrollment detail page.</div>
-        <div class="fn-file">resident_homepage.php</div>
+        <div class="fn-file">student_homepage.php</div>
       </div>
       <div class="fn-card">
-        <div class="fn-icon icon-resident">📄</div>
+        <div class="fn-icon icon-student">📄</div>
         <div class="fn-name">grade[N].php Views</div>
-        <div class="fn-desc">Six read-only grade detail pages (<code>grade7.php</code> to <code>grade12.php</code>). Fetches the student's own record from the corresponding grade table by their <code>id_resident</code> and displays their enrollment data.</div>
+        <div class="fn-desc">Six read-only grade detail pages (<code>grade7.php</code> to <code>grade12.php</code>). Fetches the student's own record from the corresponding grade table by their <code>id_student</code> and displays their enrollment data.</div>
         <div class="fn-file">grade7.php … grade12.php</div>
       </div>
       <div class="fn-card">
-        <div class="fn-icon icon-resident">🔍</div>
-        <div class="fn-name">resident_crud_search.php</div>
-        <div class="fn-desc">Provides the resident-facing search functionality, allowing students to look up records in the system using their own identity credentials.</div>
-        <div class="fn-file">resident_crud_search.php</div>
+        <div class="fn-icon icon-student">🔍</div>
+        <div class="fn-name">student_crud_search.php</div>
+        <div class="fn-desc">Provides the student-facing search functionality, allowing students to look up records in the system using their own identity credentials.</div>
+        <div class="fn-file">student_crud_search.php</div>
       </div>
       <div class="fn-card">
-        <div class="fn-icon icon-resident">👥</div>
+        <div class="fn-icon icon-student">👥</div>
         <div class="fn-name">Household &amp; Voter Views</div>
-        <div class="fn-desc"><code>view_resident_household()</code> and <code>view_resident_voters()</code> show grouped household members and voter-age residents — useful demographic views for the school's community data.</div>
-        <div class="fn-file">classes/resident.class.php</div>
+        <div class="fn-desc"><code>view_student_household()</code> and <code>view_student_voters()</code> show grouped household members and voter-age students — useful demographic views for the school's community data.</div>
+        <div class="fn-file">classes/student.class.php</div>
       </div>
     </div>
 
     <table class="info-table">
       <thead><tr><th>Function</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>view_resident()</code></td><td>Returns all resident records; used in admin context for browsing the full student list.</td></tr>
-        <tr><td><code>view_resident_minor()</code></td><td>Returns students under 18 years old.</td></tr>
-        <tr><td><code>view_resident_adult()</code></td><td>Returns students aged 18–59.</td></tr>
-        <tr><td><code>view_resident_senior()</code></td><td>Returns records flagged as senior citizens (60+).</td></tr>
-        <tr><td><code>count_resident()</code></td><td>Returns total registered resident count for dashboard stats.</td></tr>
+        <tr><td><code>view_student()</code></td><td>Returns all student records; used in admin context for browsing the full student list.</td></tr>
+        <tr><td><code>view_student_minor()</code></td><td>Returns students under 18 years old.</td></tr>
+        <tr><td><code>view_student_adult()</code></td><td>Returns students aged 18–59.</td></tr>
+        <tr><td><code>view_student_senior()</code></td><td>Returns records flagged as senior citizens (60+).</td></tr>
+        <tr><td><code>count_student()</code></td><td>Returns total registered student count for dashboard stats.</td></tr>
         <tr><td><code>view_eleven_stem()</code> etc.</td><td>Strand-specific queries for Grade 11/12 (STEM, ABM, GAS, TVL-ICT, TVL-HE).</td></tr>
       </tbody>
     </table>
@@ -1111,7 +1111,7 @@ body {
         <div class="mock-dot md-red"></div>
         <div class="mock-dot md-yellow"></div>
         <div class="mock-dot md-green"></div>
-        <div class="mockup-url">localhost/htdocs/resident_profile.php?id_resident=42</div>
+        <div class="mockup-url">localhost/htdocs/student_profile.php?id_student=42</div>
       </div>
       <div class="mockup-screen">
         <div style="display:flex;gap:14px;align-items:flex-start;">
@@ -1140,16 +1140,16 @@ body {
 
     <div class="fn-grid">
       <div class="fn-card">
-        <div class="fn-icon icon-resident">👤</div>
+        <div class="fn-icon icon-student">👤</div>
         <div class="fn-name">profile_update()</div>
-        <div class="fn-desc">Handles the profile edit form POST for residents. Updates name, contact info, and other personal fields in <code>tbl_resident</code>. Requires the student's <code>id_resident</code> from the URL.</div>
-        <div class="fn-file">resident_profile.php → resident.class.php : profile_update()</div>
+        <div class="fn-desc">Handles the profile edit form POST for students. Updates name, contact info, and other personal fields in <code>tbl_student</code>. Requires the student's <code>id_student</code> from the URL.</div>
+        <div class="fn-file">student_profile.php → student.class.php : profile_update()</div>
       </div>
       <div class="fn-card">
-        <div class="fn-icon icon-resident">🔑</div>
-        <div class="fn-name">resident_changepass()</div>
-        <div class="fn-desc">Verifies the current password, then hashes and saves the new one for the resident account. Triggered from <code>resident_changepass.php</code>.</div>
-        <div class="fn-file">resident_changepass.php → resident.class.php</div>
+        <div class="fn-icon icon-student">🔑</div>
+        <div class="fn-name">student_changepass()</div>
+        <div class="fn-desc">Verifies the current password, then hashes and saves the new one for the student account. Triggered from <code>student_changepass.php</code>.</div>
+        <div class="fn-file">student_changepass.php → student.class.php</div>
       </div>
       <div class="fn-card">
         <div class="fn-icon icon-admin">🔒</div>
@@ -1158,10 +1158,10 @@ body {
         <div class="fn-file">admin_changepass.php → main.class.php : admin_changepass()</div>
       </div>
       <div class="fn-card">
-        <div class="fn-icon icon-resident">📋</div>
-        <div class="fn-name">get_single_resident()</div>
-        <div class="fn-desc">Fetches all fields for a specific resident by <code>id_resident</code>. Used to pre-populate the profile edit form with existing data before the user makes changes.</div>
-        <div class="fn-file">classes/resident.class.php : get_single_resident()</div>
+        <div class="fn-icon icon-student">📋</div>
+        <div class="fn-name">get_single_student()</div>
+        <div class="fn-desc">Fetches all fields for a specific student by <code>id_student</code>. Used to pre-populate the profile edit form with existing data before the user makes changes.</div>
+        <div class="fn-file">classes/student.class.php : get_single_student()</div>
       </div>
     </div>
   </div>
@@ -1179,8 +1179,8 @@ body {
         <tr><td><code>logout()</code></td><td>logout.php</td><td>Destroys session, redirects to login</td><td><span class="badge-pill pill-sys">All</span></td></tr>
         <tr><td><code>get_userdata()</code></td><td>main.class.php</td><td>Returns logged-in user's session data</td><td><span class="badge-pill pill-sys">All</span></td></tr>
         <tr><td><code>validate_admin()</code></td><td>main.class.php</td><td>Guards all admin pages; redirects if not admin</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
-        <tr><td><code>create_resident()</code></td><td>resident.class.php</td><td>Registers a new student account</td><td><span class="badge-pill pill-resident">Student</span></td></tr>
-        <tr><td><code>check_resident()</code></td><td>resident.class.php</td><td>Duplicate email/phone check before registration</td><td><span class="badge-pill pill-resident">Student</span></td></tr>
+        <tr><td><code>create_student()</code></td><td>student.class.php</td><td>Registers a new student account</td><td><span class="badge-pill pill-student">Student</span></td></tr>
+        <tr><td><code>check_student()</code></td><td>student.class.php</td><td>Duplicate email/phone check before registration</td><td><span class="badge-pill pill-student">Student</span></td></tr>
         <tr><td><code>create_admin()</code></td><td>main.class.php</td><td>Creates admin account (bootstrap or add)</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
         <tr><td><code>count_by_grade()</code></td><td>main.class.php</td><td>Count enrollees per grade/strand for dashboard</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
         <tr><td><code>create_[grade]()</code></td><td>main.class.php</td><td>Add student to Grade 7–12 table</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
@@ -1193,11 +1193,11 @@ body {
         <tr><td><code>update_staff()</code></td><td>staff.class.php</td><td>Edit staff information</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
         <tr><td><code>delete_staff()</code></td><td>staff.class.php</td><td>Remove staff account</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
         <tr><td><code>count_staff()</code></td><td>staff.class.php</td><td>Total staff count for dashboard</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
-        <tr><td><code>profile_update()</code></td><td>resident.class.php</td><td>Update student's own profile fields</td><td><span class="badge-pill pill-resident">Student</span></td></tr>
-        <tr><td><code>resident_changepass()</code></td><td>resident.class.php</td><td>Change student password securely</td><td><span class="badge-pill pill-resident">Student</span></td></tr>
+        <tr><td><code>profile_update()</code></td><td>student.class.php</td><td>Update student's own profile fields</td><td><span class="badge-pill pill-student">Student</span></td></tr>
+        <tr><td><code>student_changepass()</code></td><td>student.class.php</td><td>Change student password securely</td><td><span class="badge-pill pill-student">Student</span></td></tr>
         <tr><td><code>admin_changepass()</code></td><td>main.class.php</td><td>Change admin password securely</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
-        <tr><td><code>view_eleven_stem()</code> etc.</td><td>resident.class.php</td><td>Strand-filtered Grade 11/12 views</td><td><span class="badge-pill pill-sys">All</span></td></tr>
-        <tr><td><code>view_resident_household()</code></td><td>resident.class.php</td><td>Group residents by household</td><td><span class="badge-pill pill-sys">All</span></td></tr>
+        <tr><td><code>view_eleven_stem()</code> etc.</td><td>student.class.php</td><td>Strand-filtered Grade 11/12 views</td><td><span class="badge-pill pill-sys">All</span></td></tr>
+        <tr><td><code>view_student_household()</code></td><td>student.class.php</td><td>Group students by household</td><td><span class="badge-pill pill-sys">All</span></td></tr>
         <tr><td>Search pages (admn_*_search)</td><td>Various</td><td>Live search by name/LRN per grade level</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
         <tr><td>Archive (admn_archive.php)</td><td>admn_archive.php</td><td>View and restore archived student records</td><td><span class="badge-pill pill-admin">Admin</span></td></tr>
       </tbody>
@@ -1212,7 +1212,7 @@ body {
       <div class="chip-list">
         <span class="chip">tbl_admin</span>
         <span class="chip">tbl_staff</span>
-        <span class="chip">tbl_resident</span>
+        <span class="chip">tbl_student</span>
         <span class="chip">tbl_seven</span>
         <span class="chip">tbl_eight</span>
         <span class="chip">tbl_nine</span>

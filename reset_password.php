@@ -8,7 +8,7 @@ $token   = trim($_GET['token'] ?? '');
 $message = '';
 $message_type = '';
 $valid_token  = false;
-$resident_email = '';
+$student_email = '';
 
 // ── Validate token ────────────────────────────────────────────────────────────
 if (empty($token)) {
@@ -24,7 +24,7 @@ if (empty($token)) {
         $message_type = 'danger';
     } else {
         $valid_token    = true;
-        $resident_email = $reset['email'];
+        $student_email = $reset['email'];
     }
 }
 
@@ -45,9 +45,9 @@ if (isset($_POST['do_reset']) && $valid_token) {
     } else {
         $hashed = password_hash($new_password, PASSWORD_DEFAULT);
 
-        // Update password in tbl_resident
-        $stmt = $conn->prepare("UPDATE tbl_resident SET password = ? WHERE email = ?");
-        $updated = $stmt->execute([$hashed, $resident_email]);
+        // Update password in tbl_student
+        $stmt = $conn->prepare("UPDATE tbl_student SET password = ? WHERE email = ?");
+        $updated = $stmt->execute([$hashed, $student_email]);
 
         if ($updated && $stmt->rowCount() > 0) {
             // Delete used token

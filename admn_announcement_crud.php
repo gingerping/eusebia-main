@@ -3,12 +3,12 @@
    error_reporting(E_ALL);
    ini_set('display_errors', 1);
    
-   require('classes/resident.class.php');
+   require('classes/student.class.php');
    
    $userdetails = $eusebia->get_userdata();
    $eusebia->validate_admin();
    
-   $current_admin_id = $userdetails['id_resident']; 
+   $current_admin_id = $userdetails['id_student']; 
 
    $eusebia->create_announcement();
    $eusebia->admin_delete_announcement(); // Check if this name matches the class

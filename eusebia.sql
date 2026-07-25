@@ -30,7 +30,7 @@ SET time_zone = "+00:00";
 CREATE TABLE `archives` (
   `id_seven` int NOT NULL,
   `original_grade` varchar(50) DEFAULT NULL,
-  `id_resident` int NOT NULL,
+  `id_student` int NOT NULL,
   `sy` varchar(50) NOT NULL,
   `lrn` varchar(50) NOT NULL,
   `course` varchar(100) DEFAULT NULL,
@@ -92,7 +92,7 @@ INSERT INTO `tbl_admin` (`id_admin`, `email`, `phone_number`, `password`, `lname
 
 CREATE TABLE `tbl_eight` (
   `id_eight` int NOT NULL,
-  `id_resident` int NOT NULL,
+  `id_student` int NOT NULL,
   `sy` varchar(50) NOT NULL,
   `lrn` varchar(50) NOT NULL,
   `lname` varchar(50) NOT NULL,
@@ -132,7 +132,7 @@ CREATE TABLE `tbl_eight` (
 -- Dumping data for table `tbl_eight`
 --
 
-INSERT INTO `tbl_eight` (`id_eight`, `id_resident`, `sy`, `lrn`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, `lsa`, `lysc`, `school_id`, `documents`, `is_archived`, `archived_at`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`) VALUES
+INSERT INTO `tbl_eight` (`id_eight`, `id_student`, `sy`, `lrn`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, `lsa`, `lysc`, `school_id`, `documents`, `is_archived`, `archived_at`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `prev_grade_table`, `prev_grade_id`) VALUES
 (19, 59, '2026-2027', '4568969080', 'x 11\")', 'US-Letter', '(', '2026-06-24', 'Female', 18, '09070569634', 'domingonobleza011@gmail.com', 'hibago', 'heheheh', 'US-Letter', 'x 11\")', '(', '09070560963', 'Lumabe', 'Rowena ', '2edfgv', '09070560968', 'bttgtgr', 'eusebia', '2025-2025', '4567764', '[\"uploads\\/documents\\/eight\\/1781004752_0_481141634_1303127427469870_75946518727150831_n.jpg\",\"uploads\\/documents\\/eight\\/1781004752_1_494705055_1346025396513406_8211283353670620323_n.jpg\"]', 0, NULL, 'Yes', 'Agta', 'Yes', '8765re4w3q987654', 'tbl_seven', 42);
 
 -- --------------------------------------------------------
@@ -143,7 +143,7 @@ INSERT INTO `tbl_eight` (`id_eight`, `id_resident`, `sy`, `lrn`, `lname`, `fname
 
 CREATE TABLE `tbl_eleven` (
   `id_eleven` int NOT NULL,
-  `id_resident` int NOT NULL,
+  `id_student` int NOT NULL,
   `sy` varchar(50) NOT NULL,
   `lrn` varchar(50) NOT NULL,
   `course` varchar(100) NOT NULL,
@@ -190,7 +190,7 @@ CREATE TABLE `tbl_eleven` (
 
 CREATE TABLE `tbl_nine` (
   `id_nine` int NOT NULL,
-  `id_resident` int NOT NULL,
+  `id_student` int NOT NULL,
   `sy` varchar(50) NOT NULL,
   `lrn` varchar(50) NOT NULL,
   `course` varchar(100) NOT NULL,
@@ -230,11 +230,11 @@ CREATE TABLE `tbl_nine` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `tbl_resident`
+-- Table structure for table `tbl_student`
 --
 
-CREATE TABLE `tbl_resident` (
-  `id_resident` int NOT NULL,
+CREATE TABLE `tbl_student` (
+  `id_student` int NOT NULL,
   `email` varchar(255) DEFAULT NULL,
   `phone_number` varchar(20) DEFAULT NULL,
   `password` varchar(255) NOT NULL,
@@ -256,18 +256,18 @@ CREATE TABLE `tbl_resident` (
   `is_archived` tinyint(1) NOT NULL DEFAULT '0' COMMENT '0 = active, 1 = archived',
   `google_id` varchar(255) DEFAULT NULL,
   `facebook_id` varchar(255) DEFAULT NULL,
-  `archived_at` datetime DEFAULT NULL COMMENT 'Timestamp when the resident was archived',
+  `archived_at` datetime DEFAULT NULL COMMENT 'Timestamp when the student was archived',
   `social_provider` varchar(20) DEFAULT NULL,
   `social_id` varchar(128) DEFAULT NULL,
   `social_avatar_url` varchar(512) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
--- Dumping data for table `tbl_resident`
+-- Dumping data for table `tbl_student`
 --
 
-INSERT INTO `tbl_resident` (`id_resident`, `email`, `phone_number`, `password`, `lname`, `fname`, `mi`, `age`, `sex`, `status`, `houseno`, `street`, `brgy`, `municipal`, `contact`, `bdate`, `bplace`, `nationality`, `addedby`, `is_archived`, `google_id`, `facebook_id`, `archived_at`, `social_provider`, `social_id`, `social_avatar_url`) VALUES
-(61, 'domingonobleza011@gmail.com', NULL, '$2y$10$RuqGoziqP/vukKl5C2PmteM1In11yK/b5Ds0txu5xdOwcxjUxfwbm', 'DOmingo', 'nobleza', 'bendal', 18, 'Female', 'Widowed', 'Bagong Sirang', 'Zone 3', 'xw', 'Iriga City', '09070560963', '2026-06-09', 'Antipolo, Rizal', 'batman', 'Resident', 0, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO `tbl_student` (`id_student`, `email`, `phone_number`, `password`, `lname`, `fname`, `mi`, `age`, `sex`, `status`, `houseno`, `street`, `brgy`, `municipal`, `contact`, `bdate`, `bplace`, `nationality`, `addedby`, `is_archived`, `google_id`, `facebook_id`, `archived_at`, `social_provider`, `social_id`, `social_avatar_url`) VALUES
+(61, 'domingonobleza011@gmail.com', NULL, '$2y$10$RuqGoziqP/vukKl5C2PmteM1In11yK/b5Ds0txu5xdOwcxjUxfwbm', 'DOmingo', 'nobleza', 'bendal', 18, 'Female', 'Widowed', 'Bagong Sirang', 'Zone 3', 'xw', 'Iriga City', '09070560963', '2026-06-09', 'Antipolo, Rizal', 'batman', 'Student', 0, NULL, NULL, NULL, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -277,7 +277,7 @@ INSERT INTO `tbl_resident` (`id_resident`, `email`, `phone_number`, `password`, 
 
 CREATE TABLE `tbl_seven` (
   `id_seven` int NOT NULL,
-  `id_resident` int NOT NULL,
+  `id_student` int NOT NULL,
   `sy` varchar(50) NOT NULL,
   `lrn` varchar(50) NOT NULL,
   `lname` varchar(50) NOT NULL,
@@ -317,7 +317,7 @@ CREATE TABLE `tbl_seven` (
 -- Dumping data for table `tbl_seven`
 --
 
-INSERT INTO `tbl_seven` (`id_seven`, `id_resident`, `sy`, `lrn`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, `lsa`, `lysc`, `school_id`, `documents`, `is_archived`, `archived_at`, `enrollment_status`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `reject_reason`) VALUES
+INSERT INTO `tbl_seven` (`id_seven`, `id_student`, `sy`, `lrn`, `lname`, `fname`, `mi`, `bdate`, `sex`, `age`, `contact`, `email`, `current_address`, `perm_address`, `ffname`, `flname`, `fmi`, `contact_f`, `mlname`, `mfname`, `mmi`, `contact_m`, `lglc`, `lsa`, `lysc`, `school_id`, `documents`, `is_archived`, `archived_at`, `enrollment_status`, `is_ip`, `ip_group`, `is_4ps`, `fourps_id`, `reject_reason`) VALUES
 (42, 59, '2026-2027', '4568969080', 'x 11\")', 'US-Letter', '(', '2026-06-24', 'Female', 18, '09070569634', 'domingonobleza011@gmail.com', 'hibago', 'heheheh', 'US-Letter', 'x 11\")', '(', '09070560963', 'Lumabe', 'Rowena ', '2edfgv', '09070560968', 'bttgtgr', 'eusebia', '2025-2025', '4567764', '[\"uploads\\/documents\\/seven\\/1781004523_0_1.png\",\"uploads\\/documents\\/seven\\/1781004523_1_2.png\"]', 0, NULL, 'Approved', 'Yes', 'Agta', 'Yes', '34567890', NULL),
 (43, 59, '2026-2027', '4568969080', 'x 11\")', 'US-Letter', '(', '2026-06-24', 'Female', 18, '09070569634', 'domingonobleza011@gmail.com', 'hibago', 'heheheh', 'US-Letter', 'x 11\")', '(', '09070560963', 'Lumabe', 'Rowena ', '2edfgv', '09070560968', 'bttgtgr', 'eusebia', '2025-2025', '4567764', '[\"uploads\\/documents\\/seven\\/1781690102_0_1.png\",\"uploads\\/documents\\/seven\\/1781690102_1_2.png\"]', 0, NULL, 'Pending', 'No', '', 'No', '', NULL),
 (44, 59, '2026-2027', '4568969080', 'x 11\")', 'US-Letter', '(', '2026-06-24', 'Female', 18, '09070569634', 'domingonobleza011@gmail.com', 'hibago', 'heheheh', 'US-Letter', 'x 11\")', '(', '09070560963', 'Lumabe', 'Rowena ', '2edfgv', '09070560968', 'bttgtgr', 'eusebia', '2025-2025', '4567764', '[\"uploads\\/documents\\/seven\\/1781690111_0_1.png\",\"uploads\\/documents\\/seven\\/1781690111_1_2.png\"]', 0, NULL, 'Pending', 'No', '', 'No', '', NULL),
@@ -331,7 +331,7 @@ INSERT INTO `tbl_seven` (`id_seven`, `id_resident`, `sy`, `lrn`, `lname`, `fname
 
 CREATE TABLE `tbl_ten` (
   `id_ten` int NOT NULL,
-  `id_resident` int NOT NULL,
+  `id_student` int NOT NULL,
   `sy` varchar(50) NOT NULL,
   `lrn` varchar(50) NOT NULL,
   `course` varchar(100) NOT NULL,
@@ -378,7 +378,7 @@ CREATE TABLE `tbl_ten` (
 
 CREATE TABLE `tbl_twelve` (
   `id_twelve` int NOT NULL,
-  `id_resident` int NOT NULL,
+  `id_student` int NOT NULL,
   `sy` varchar(50) NOT NULL,
   `lrn` varchar(50) NOT NULL,
   `course` varchar(100) NOT NULL,
@@ -483,14 +483,14 @@ ALTER TABLE `tbl_nine`
   ADD PRIMARY KEY (`id_nine`);
 
 --
--- Indexes for table `tbl_resident`
+-- Indexes for table `tbl_student`
 --
-ALTER TABLE `tbl_resident`
-  ADD PRIMARY KEY (`id_resident`),
+ALTER TABLE `tbl_student`
+  ADD PRIMARY KEY (`id_student`),
   ADD UNIQUE KEY `uq_social` (`social_provider`,`social_id`),
   ADD KEY `idx_is_archived` (`is_archived`),
-  ADD KEY `idx_resident_google_id` (`google_id`),
-  ADD KEY `idx_resident_facebook_id` (`facebook_id`);
+  ADD KEY `idx_student_google_id` (`google_id`),
+  ADD KEY `idx_student_facebook_id` (`facebook_id`);
 
 --
 -- Indexes for table `tbl_seven`
@@ -551,10 +551,10 @@ ALTER TABLE `tbl_nine`
   MODIFY `id_nine` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
--- AUTO_INCREMENT for table `tbl_resident`
+-- AUTO_INCREMENT for table `tbl_student`
 --
-ALTER TABLE `tbl_resident`
-  MODIFY `id_resident` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=62;
+ALTER TABLE `tbl_student`
+  MODIFY `id_student` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=62;
 
 --
 -- AUTO_INCREMENT for table `tbl_seven`

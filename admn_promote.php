@@ -2,7 +2,7 @@
 
     error_reporting(E_ALL ^ E_WARNING);
     ini_set('display_errors', 0);
-    require('classes/resident.class.php');
+    require('classes/student.class.php');
     $userdetails = $eusebia->get_userdata();
     $eusebia->validate_admin();
 

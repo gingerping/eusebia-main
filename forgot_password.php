@@ -24,11 +24,11 @@ if (isset($_POST['send_reset'])) {
         $message = 'Please enter a valid email address.';
         $message_type = 'danger';
     } else {
-        $stmt = $conn->prepare("SELECT id_resident, fname, lname FROM tbl_resident WHERE email = ? LIMIT 1");
+        $stmt = $conn->prepare("SELECT id_student, fname, lname FROM tbl_student WHERE email = ? LIMIT 1");
         $stmt->execute([$email]);
-        $resident = $stmt->fetch(PDO::FETCH_ASSOC);
+        $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($resident) {
+        if ($student) {
             $token      = bin2hex(random_bytes(32));
             $expires_at = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
@@ -37,7 +37,7 @@ if (isset($_POST['send_reset'])) {
                  ->execute([$email, $token, $expires_at]);
 
             $reset_link = 'https://eusebianationalhighschool.gt.tc/reset_password.php?token=' . $token;
-            $name       = htmlspecialchars($resident['fname'] . ' ' . $resident['lname']);
+            $name       = htmlspecialchars($student['fname'] . ' ' . $student['lname']);
 
             // ── PHPMailer via Gmail SMTP ──────────────────────────────────
             $mail = new PHPMailer(true);

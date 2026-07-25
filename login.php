@@ -447,7 +447,7 @@ $eusebia->login();
 
                 <div class="text-center mb-1">
                     <p class="mb-2 fw-semibold" style="font-size:.92rem; color:#334155;">Don't have an account yet?</p>
-                    <button class="btn-register-link" onclick="window.location.href='resident_registration.php';">
+                    <button class="btn-register-link" onclick="window.location.href='student_registration.php';">
                         <i class="fas fa-user-plus me-2"></i> Create Account
                     </button>
                 </div>

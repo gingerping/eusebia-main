@@ -1,9 +1,9 @@
 <?php 
 error_reporting(E_ALL ^ E_WARNING);
-include('classes/resident.class.php');
+include('classes/student.class.php');
 
 $userdetails = $eusebia->get_userdata();
-$current_user_id = $userdetails['id_resident'];
+$current_user_id = $userdetails['id_student'];
 
 // Fetch promotion requests for display
 $my_promotion_requests = $eusebia->get_my_promotion_requests();
@@ -24,7 +24,7 @@ foreach ($grades as $g) {
     try {
         $stmt = $connection->prepare(
             "SELECT * FROM {$g['table']} 
-             WHERE id_resident = ? AND (is_archived = 0 OR is_archived IS NULL)"
+             WHERE id_student = ? AND (is_archived = 0 OR is_archived IS NULL)"
         );
         $stmt->execute([$current_user_id]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -228,26 +228,7 @@ $rejected = count(array_filter($all_submissions, fn($r) => strtolower($r['enroll
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-custom sticky-top">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="resident_homepage.php">
-            <i class="bi bi-mortarboard-fill me-2"></i> EPAMHS Portal
-        </a>
-        <div class="dropdown ms-auto">
-            <button class="btn dropdown-toggle-custom dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="fas fa-user-circle me-2"></i> <?= htmlspecialchars($userdetails['surname'] . ', ' . $userdetails['firstname']); ?>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-custom dropdown-menu-end" aria-labelledby="userDropdown">
-                <li><a class="dropdown-item dropdown-item-custom" href="resident_homepage.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a class="dropdown-item dropdown-item-custom active-page" href="my_submissions.php?id_resident=<?= $current_user_id ?>"><i class="fas fa-file-alt"></i> My Submissions</a></li>
-                <li><a class="dropdown-item dropdown-item-custom" href="resident_profile.php?id_resident=<?= $current_user_id ?>"><i class="fas fa-id-card"></i> My Profile</a></li>
-                <li><a class="dropdown-item dropdown-item-custom" href="resident_changepass.php?id_resident=<?= $current_user_id ?>"><i class="fas fa-key"></i> Change Password</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item dropdown-item-custom" href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-            </ul>
-        </div>
-    </div>
-</nav>
+<?php $active_page = 'submissions'; include('student_navbar.php'); ?>
 
 <div class="page-header">
     <div class="container">
@@ -303,7 +284,7 @@ $rejected = count(array_filter($all_submissions, fn($r) => strtolower($r['enroll
             <div class="empty-icon"><i class="fas fa-folder-open"></i></div>
             <h4>No Submissions Yet</h4>
             <p class="mt-2">You haven't submitted any enrollment forms yet.<br>Head back to the dashboard to choose your grade level and apply.</p>
-            <a href="resident_homepage.php" class="btn-go-enroll">
+            <a href="student_homepage.php" class="btn-go-enroll">
                 <i class="fas fa-arrow-right me-2"></i> Go to Dashboard
             </a>
         </div>
@@ -492,18 +473,7 @@ $rejected = count(array_filter($all_submissions, fn($r) => strtolower($r['enroll
 <?php endif; ?>
 <!-- ============================================================ -->
 
-<footer class="footer-custom">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-6 mb-3 mb-md-0">
-                <i class="fas fa-school me-2"></i> Eusebia Paz Arroyo Memorial National High School
-            </div>
-            <div class="col-md-6 text-md-end">
-                <p class="mb-0"><?= date('Y') ?> EPAMHS Portal. All rights reserved.</p>
-            </div>
-        </div>
-    </div>
-</footer>
+<?php include('student_footer.php'); ?>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>

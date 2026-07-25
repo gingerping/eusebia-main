@@ -1,52 +1,52 @@
 <?php
     error_reporting(E_ALL ^ E_WARNING);
-    include('classes/resident.class.php');
+    include('classes/student.class.php');
  $userdetails = $eusebia->get_userdata();
-    $residenteusebia = new ResidentClass();
+    $studenteusebia = new StudentClass();
 
     
     // Fetching all 6 grades
-   $g7  = $residenteusebia->count_by_grade('tbl_seven');
-    $g8  = $residenteusebia->count_by_grade('tbl_eight');
-    $g9  = $residenteusebia->count_by_grade('tbl_nine');
-    $g10 = $residenteusebia->count_by_grade('tbl_ten');
+   $g7  = $studenteusebia->count_by_grade('tbl_seven');
+    $g8  = $studenteusebia->count_by_grade('tbl_eight');
+    $g9  = $studenteusebia->count_by_grade('tbl_nine');
+    $g10 = $studenteusebia->count_by_grade('tbl_ten');
     
     // Fetch SHS Counts
-    $g11 = $residenteusebia->count_by_grade('tbl_eleven');
-    $g12 = $residenteusebia->count_by_grade('tbl_twelve');
+    $g11 = $studenteusebia->count_by_grade('tbl_eleven');
+    $g12 = $studenteusebia->count_by_grade('tbl_twelve');
 
-    $stem = $residenteusebia->count_by_grade('tbl_eleven', 'course', 'STEM') + 
-            $residenteusebia->count_by_grade('tbl_twelve', 'course', 'STEM');
+    $stem = $studenteusebia->count_by_grade('tbl_eleven', 'course', 'STEM') + 
+            $studenteusebia->count_by_grade('tbl_twelve', 'course', 'STEM');
 
     // ABM
-    $abm  = $residenteusebia->count_by_grade('tbl_eleven', 'course', 'ABM') + 
-            $residenteusebia->count_by_grade('tbl_twelve', 'course', 'ABM');
+    $abm  = $studenteusebia->count_by_grade('tbl_eleven', 'course', 'ABM') + 
+            $studenteusebia->count_by_grade('tbl_twelve', 'course', 'ABM');
 
     // GAS
-    $gas  = $residenteusebia->count_by_grade('tbl_eleven', 'course', 'GAS') + 
-            $residenteusebia->count_by_grade('tbl_twelve', 'course', 'GAS');
+    $gas  = $studenteusebia->count_by_grade('tbl_eleven', 'course', 'GAS') + 
+            $studenteusebia->count_by_grade('tbl_twelve', 'course', 'GAS');
 
     // TVL-ICT
-    $ict  = $residenteusebia->count_by_grade('tbl_eleven', 'course', 'TVL-ICT') + 
-            $residenteusebia->count_by_grade('tbl_twelve', 'course', 'TVL-ICT');
+    $ict  = $studenteusebia->count_by_grade('tbl_eleven', 'course', 'TVL-ICT') + 
+            $studenteusebia->count_by_grade('tbl_twelve', 'course', 'TVL-ICT');
 
     // TVL-HE
-    $he   = $residenteusebia->count_by_grade('tbl_eleven', 'course', 'TVL-HE') + 
-            $residenteusebia->count_by_grade('tbl_twelve', 'course', 'TVL-HE');
+    $he   = $studenteusebia->count_by_grade('tbl_eleven', 'course', 'TVL-HE') + 
+            $studenteusebia->count_by_grade('tbl_twelve', 'course', 'TVL-HE');
 
-    $stem_count = $residenteusebia->count_by_grade('tbl_eleven', 'course', 'STEM') + 
-                  $residenteusebia->count_by_grade('tbl_twelve', 'course', 'STEM');
-    $abm_count = $residenteusebia->count_by_grade('tbl_eleven', 'course', 'ABM') + 
-                  $residenteusebia->count_by_grade('tbl_twelve', 'course', 'ABM');
+    $stem_count = $studenteusebia->count_by_grade('tbl_eleven', 'course', 'STEM') + 
+                  $studenteusebia->count_by_grade('tbl_twelve', 'course', 'STEM');
+    $abm_count = $studenteusebia->count_by_grade('tbl_eleven', 'course', 'ABM') + 
+                  $studenteusebia->count_by_grade('tbl_twelve', 'course', 'ABM');
 
-    $gas_count  = $residenteusebia->count_by_grade('tbl_eleven', 'course', 'GAS') + 
-                  $residenteusebia->count_by_grade('tbl_twelve', 'course', 'GAS');
+    $gas_count  = $studenteusebia->count_by_grade('tbl_eleven', 'course', 'GAS') + 
+                  $studenteusebia->count_by_grade('tbl_twelve', 'course', 'GAS');
 
-    $ict_count  = $residenteusebia->count_by_grade('tbl_eleven', 'course', 'TVL-ICT') + 
-                  $residenteusebia->count_by_grade('tbl_twelve', 'course', 'TVL-ICT');
+    $ict_count  = $studenteusebia->count_by_grade('tbl_eleven', 'course', 'TVL-ICT') + 
+                  $studenteusebia->count_by_grade('tbl_twelve', 'course', 'TVL-ICT');
 
-    $he_count   = $residenteusebia->count_by_grade('tbl_eleven', 'course', 'TVL-HE') + 
-                  $residenteusebia->count_by_grade('tbl_twelve', 'course', 'TVL-HE');
+    $he_count   = $studenteusebia->count_by_grade('tbl_eleven', 'course', 'TVL-HE') + 
+                  $studenteusebia->count_by_grade('tbl_twelve', 'course', 'TVL-HE');
 
     // Calculate Totals for the Cards
     $total_jhs = $g7 + $g8 + $g9 + $g10;

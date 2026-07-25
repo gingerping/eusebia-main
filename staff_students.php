@@ -101,9 +101,9 @@ $is_shs = in_array($grade, [11,12]);
             <span class="text-white font-weight-bold">
                 <i class="fas fa-table mr-1"></i> <?= htmlspecialchars($label) ?> Enrollees
             </span>
-            <button class="btn btn-warning btn-sm py-0" onclick="window.print()">
-                <i class="fas fa-print mr-1"></i> Print
-            </button>
+            <a href="staff_classlist.php?class=<?= urlencode($requested_key) ?>" class="btn btn-outline-light btn-sm py-0">
+                <i class="fas fa-print mr-1"></i> Class List
+            </a>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
